@@ -122,38 +122,33 @@ impl App {
         newest_reword.or(Some(original))
     }
 
-    /// The targeted summary when `summary` carries at least one `fixup! `
-    /// prefix, stripping repeatedly so a fixup of a fixup still resolves.
+    /// A fixup discards its message, even when it targets an amend or reword.
     fn fixup_target(summary: &str) -> Option<&str> {
-        let mut rest = summary;
-        let mut stripped = false;
-        while let Some(next) = rest.strip_prefix(FIXUP_PREFIX) {
-            rest = next;
-            stripped = true;
-        }
-        if !stripped || rest.is_empty() {
-            return None;
-        }
-        Some(rest)
+        Self::strip_stack_prefixes(summary.strip_prefix(FIXUP_PREFIX)?)
     }
 
-    /// The targeted summary when `summary` carries at least one `amend! `
-    /// or `reword! ` prefix, stripping repeatedly so chained rewords still
-    /// resolve.
+    /// An amend or reword replaces the message, even when it targets a fixup.
     fn reword_target(summary: &str) -> Option<&str> {
-        let mut rest = summary;
-        let mut stripped = false;
-        while let Some(next) = rest
+        let target = summary
             .strip_prefix(AMEND_PREFIX)
-            .or_else(|| rest.strip_prefix(REWORD_PREFIX))
+            .or_else(|| summary.strip_prefix(REWORD_PREFIX))?;
+        Self::strip_stack_prefixes(target)
+    }
+
+    /// Strip nested autosquash prefixes in any order to find the original.
+    /// The caller uses the outermost prefix to determine message behavior.
+    fn strip_stack_prefixes(mut summary: &str) -> Option<&str> {
+        while let Some(next) = summary
+            .strip_prefix(FIXUP_PREFIX)
+            .or_else(|| summary.strip_prefix(AMEND_PREFIX))
+            .or_else(|| summary.strip_prefix(REWORD_PREFIX))
         {
-            rest = next;
-            stripped = true;
+            summary = next;
         }
-        if !stripped || rest.is_empty() {
+        if summary.is_empty() {
             return None;
         }
-        Some(rest)
+        Some(summary)
     }
 
     fn build_commit_message_file(commit: &CommitInfo) -> DiffFile {

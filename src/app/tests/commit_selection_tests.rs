@@ -734,6 +734,35 @@ fn should_resolve_a_fixup_of_a_fixup_to_the_original() {
 }
 
 #[test]
+fn should_resolve_mixed_prefixes_and_use_the_outermost_message_behavior() {
+    for (summary, expected_id) in [
+        ("fixup! amend! Test commit", "c2"),
+        ("fixup! amend! amend! Test commit", "c2"),
+        ("fixup! reword! amend! Test commit", "c2"),
+        ("amend! fixup! reword! Test commit", "c3"),
+        ("reword! fixup! amend! Test commit", "c3"),
+    ] {
+        let path = PathBuf::from("src/only_in_commit.rs");
+        let mut app = build_app(vec![
+            commit_with_summary("c3", summary),
+            commit_with_summary("c2", "amend! Test commit"),
+            normal_commit("c1"),
+        ]);
+        app.review_commits = app.commit_list.clone();
+        app.range_diff_files = Some(vec![commit_only_file(&path, vec![one_line_hunk()])]);
+        app.commit_selection_range = Some((0, 2));
+        app.reload_inline_selection()
+            .expect("loading a mixed-prefix range should succeed");
+
+        assert_eq!(
+            commit_message_file(&app).map(|file| file.display_path().clone()),
+            Some(commit_message_path(expected_id)),
+            "incorrect message target for {summary}",
+        );
+    }
+}
+
+#[test]
 fn should_show_the_commit_message_when_one_commit_is_chosen_in_the_target_selector() {
     let path = PathBuf::from("src/only_in_commit.rs");
     let mut app = build_app_with_range_diff(
