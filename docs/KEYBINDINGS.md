@@ -28,7 +28,7 @@ The binding does not apply in text-input or modal views.
 | `{N}G` | Go to source line N in current file |
 | `{N}{motion}` | Vim-style count prefix — repeats `j` / `k` / `h` / `l` / `{` / `}` / `[` / `]` `N` times |
 | `{` / `}` | Jump to previous / next file |
-| `[` / `]` | Jump to previous / next hunk |
+| `[` / `]` | Jump to previous / next hunk; double-tap within 400 ms to cross a file boundary |
 | `m` / `M` | Jump to next / previous comment |
 | `/` | Search within diff (case-insensitive); matches on diff content are highlighted and the status bar shows the `[current/total]` position (headers, comments, and PR info are searchable but not highlighted) |
 | `n` / `N` | Next / previous search match (wraps around) |
@@ -37,6 +37,15 @@ The binding does not apply in text-input or modal views.
 | `zt` | Scroll cursor to top of screen |
 | `\` | Center cursor on screen (configurable with `center_view`) |
 | `zb` | Scroll cursor to bottom of screen |
+
+Hunk navigation within a file needs one press.
+At a file boundary, the first press leaves the cursor and viewport unchanged.
+Press the same hunk-navigation key again within 400 ms to cross the boundary.
+A different key or an expired timer cancels the first press.
+This applies in both continuous and single-file views.
+Numeric counts such as `5]` stop at each unconfirmed file boundary.
+Reported key-repeat events do not confirm or extend the double-tap window.
+Terminals without repeat-event reporting cannot distinguish a held key from separate presses.
 
 ## Help
 

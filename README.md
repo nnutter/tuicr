@@ -307,7 +307,7 @@ A first-session cheatsheet. Press `?` inside tuicr for the full reference.
 | `g` / `G` | Top / bottom |
 | `\` | Center cursor on screen |
 | `{` / `}` | Previous / next file |
-| `[` / `]` | Previous / next hunk |
+| `[` / `]` | Previous / next hunk (double-tap within 400 ms to cross files) |
 | `m` / `M` | Next / previous comment |
 | `/` | Search the diff, the file tree, or help — whichever is focused/open (case-insensitive) |
 | `n` / `N` | Next / previous search match (wraps); matches stay highlighted — `Esc` clears |

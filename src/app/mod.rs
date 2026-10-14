@@ -1350,6 +1350,8 @@ pub struct App {
     /// view; consumed by a second underflow press to walk to the
     /// previous file.
     pub primed_walk_prev: bool,
+    /// A recent hunk-navigation press waiting for a file-boundary double-tap.
+    pending_hunk_navigation: Option<navigation::PendingHunkNavigation>,
     /// Set when the Down arrow / `j` key is released after
     /// `primed_walk_next` was armed. The walk consumes only when both
     /// flags are true so held-key auto-repeat (Press, Repeat, Repeat...)

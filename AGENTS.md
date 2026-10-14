@@ -226,7 +226,7 @@ Repository-managed agent integrations:
 - **Session loading**: `App::new()` calls manifest-backed persistence helpers to restore previous review
 - **Collaborative session writes**: session JSON saves use a storage lock plus temp-file rename, with stale sidecar lock recovery if a process crashes while holding the lock. The TUI keeps a persisted-session snapshot so polling, `:e`, and autosave can merge external `tuicr review add` comments without overwriting local edits.
 - **Clipboard**: Uses `arboard` crate for cross-platform clipboard support
-- **Hunk navigation**: `next_hunk()`/`prev_hunk()` calculate positions by iterating through files
+- **Hunk navigation**: Targets come from rendered `HunkHeader` annotations. Crossing files requires two same-direction presses within 400 ms in both continuous and single-file views. `next_hunks`/`prev_hunks` receive a count, repeat flag, and event timestamp so numeric counts and reported auto-repeat cannot confirm a boundary. The event loop cancels pending taps on other keys. Target, source cursor, and view mode must still match when confirming.
 - **Viewport centering**: `center_view` config selects a non-empty normal-mode character sequence (default `\`, with `zz` available as an override). `App::center_view_key` is shared by the diff/tree key maps and help. `CenterViewSequence` tracks multi-character prefixes in the event loop. The leader key takes precedence over the first character. A mismatch cancels the prefix and handles the current key normally. `zt`/`zb` still use the pending `z` sequence.
 - **Ignore filtering**: `.tuicrignore` is applied whenever diffs are loaded/reloaded
 - **File-tree filters**: `i`/`e` regex filters narrow the tree *and* the diff at render/measure

@@ -581,6 +581,7 @@ impl App {
             revealed_reviewed_hunk: None,
             primed_walk_next: false,
             primed_walk_prev: false,
+            pending_hunk_navigation: None,
             down_released_since_arm: false,
             up_released_since_arm: false,
             cursor_line_highlight: true,

@@ -7,10 +7,22 @@ enum HunkDirection {
     Previous,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct HunkTarget {
     file_idx: usize,
     /// None means resolve the first/last hunk after switching single-file views.
     row: Option<usize>,
+}
+
+const HUNK_BOUNDARY_DOUBLE_TAP: Duration = Duration::from_millis(400);
+
+pub(super) struct PendingHunkNavigation {
+    direction: HunkDirection,
+    source_file_idx: usize,
+    source_row: usize,
+    single_file_view: bool,
+    target: HunkTarget,
+    pressed_at: Instant,
 }
 
 impl App {
@@ -964,24 +976,96 @@ impl App {
         }
     }
 
-    fn navigate_hunk(&mut self, direction: HunkDirection) {
+    fn navigate_hunks(
+        &mut self,
+        direction: HunkDirection,
+        count: usize,
+        is_repeat: bool,
+        now: Instant,
+    ) {
         // Hunk navigation is a deliberate move, not a continuation of a
         // boundary walk. Clear any in-flight cursor-walk arming.
         self.primed_walk_next = false;
         self.primed_walk_prev = false;
         self.down_released_since_arm = false;
         self.up_released_since_arm = false;
-        if let Some(target) = self.hunk_target(direction) {
+        if self
+            .pending_hunk_navigation
+            .as_ref()
+            .is_some_and(|pending| pending.direction != direction)
+        {
+            self.cancel_hunk_navigation();
+        }
+        for _ in 0..count {
+            let Some(target) = self.hunk_target(direction) else {
+                self.cancel_hunk_navigation();
+                break;
+            };
+            if target.file_idx != self.diff_state.current_file_idx {
+                if is_repeat {
+                    // Auto-repeat must neither confirm nor refresh the timer.
+                    break;
+                }
+                let confirmed = self.pending_hunk_navigation.take().is_some_and(|pending| {
+                    pending.direction == direction
+                        && pending.source_file_idx == self.diff_state.current_file_idx
+                        && pending.source_row == self.diff_state.cursor_line
+                        && pending.single_file_view == self.is_single_file_view
+                        && pending.target == target
+                        && now.saturating_duration_since(pending.pressed_at)
+                            <= HUNK_BOUNDARY_DOUBLE_TAP
+                });
+                if !confirmed {
+                    self.pending_hunk_navigation = Some(PendingHunkNavigation {
+                        direction,
+                        source_file_idx: self.diff_state.current_file_idx,
+                        source_row: self.diff_state.cursor_line,
+                        single_file_view: self.is_single_file_view,
+                        target,
+                        pressed_at: now,
+                    });
+                    // Stop this physical press here, even with a numeric count.
+                    break;
+                }
+            } else {
+                self.cancel_hunk_navigation();
+            }
+            let previous = (
+                self.diff_state.current_file_idx,
+                self.diff_state.cursor_line,
+            );
             self.move_to_hunk_target(target, direction);
+            if previous
+                == (
+                    self.diff_state.current_file_idx,
+                    self.diff_state.cursor_line,
+                )
+            {
+                break;
+            }
         }
     }
 
+    pub fn cancel_hunk_navigation(&mut self) {
+        self.pending_hunk_navigation = None;
+    }
+
     pub fn next_hunk(&mut self) {
-        self.navigate_hunk(HunkDirection::Next);
+        self.next_hunks(1, false, Instant::now());
     }
 
     pub fn prev_hunk(&mut self) {
-        self.navigate_hunk(HunkDirection::Previous);
+        self.prev_hunks(1, false, Instant::now());
+    }
+
+    /// Navigate once per key event, preserving count and auto-repeat semantics.
+    pub fn next_hunks(&mut self, count: usize, is_repeat: bool, now: Instant) {
+        self.navigate_hunks(HunkDirection::Next, count, is_repeat, now);
+    }
+
+    /// Navigate once per key event, preserving count and auto-repeat semantics.
+    pub fn prev_hunks(&mut self, count: usize, is_repeat: bool, now: Instant) {
+        self.navigate_hunks(HunkDirection::Previous, count, is_repeat, now);
     }
 
     pub(in crate::app) fn calculate_file_scroll_offset(&self, file_idx: usize) -> usize {

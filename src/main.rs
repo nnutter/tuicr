@@ -517,6 +517,13 @@ fn main() -> anyhow::Result<()> {
                 Event::Key(key)
                     if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) =>
                 {
+                    // Only consecutive hunk keys can confirm a file-boundary tap.
+                    if app.input_mode != InputMode::Normal
+                        || !matches!(key.code, crossterm::event::KeyCode::Char('[' | ']'))
+                    {
+                        app.cancel_hunk_navigation();
+                    }
+
                     // Handle Ctrl+C twice to exit (works across all input modes)
                     // In Comment mode, first Ctrl+C also cancels the comment
                     if key.code == crossterm::event::KeyCode::Char('c')
@@ -778,6 +785,22 @@ fn main() -> anyhow::Result<()> {
                         _ => {}
                     }
 
+                    // Pass a hunk count as one physical key event. Repeated
+                    // dispatch would otherwise turn a count into a double-tap.
+                    if app.input_mode == InputMode::Normal
+                        && matches!(action, Action::NextHunk | Action::PrevHunk)
+                    {
+                        let count = app.pending_count.take().unwrap_or(1).max(1);
+                        let is_repeat = key.kind == KeyEventKind::Repeat;
+                        app.quit_warned = false;
+                        match action {
+                            Action::NextHunk => app.next_hunks(count, is_repeat, Instant::now()),
+                            Action::PrevHunk => app.prev_hunks(count, is_repeat, Instant::now()),
+                            _ => unreachable!(),
+                        }
+                        continue;
+                    }
+
                     // Vim-style {count}{motion} (Normal mode only): digits accumulate
                     // into `pending_count`, then a following motion either scales its
                     // inner count parameter or is dispatched repeatedly. `{count}G`
@@ -809,10 +832,7 @@ fn main() -> anyhow::Result<()> {
                                         | Action::ScrollViewUp(n) => {
                                             *n = n.saturating_mul(count);
                                         }
-                                        Action::NextFile
-                                        | Action::PrevFile
-                                        | Action::NextHunk
-                                        | Action::PrevHunk => {
+                                        Action::NextFile | Action::PrevFile => {
                                             // Dispatch `count - 1` extra times; the
                                             // last one runs through normal dispatch
                                             // below.
@@ -935,6 +955,9 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn dispatch_action(app: &mut App, action: Action) {
+    if !matches!(action, Action::NextHunk | Action::PrevHunk) {
+        app.cancel_hunk_navigation();
+    }
     match app.input_mode {
         InputMode::Help | InputMode::MessageDetails => handle_help_action(app, action),
         InputMode::Summary => handle_summary_action(app, action),

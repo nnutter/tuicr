@@ -331,7 +331,10 @@ fn hunk_navigation_crosses_asymmetric_files_with_hidden_middle_file() {
                 )
             })
             .unwrap();
-        app.next_hunk();
+        let now = Instant::now();
+        app.next_hunks(1, false, now);
+        assert_eq!(app.diff_state.current_file_idx, 0);
+        app.next_hunks(1, false, now + Duration::from_millis(100));
         assert_eq!(app.diff_state.current_file_idx, 2);
         assert!(matches!(
             app.line_annotations[app.diff_state.cursor_line],
@@ -340,7 +343,9 @@ fn hunk_navigation_crosses_asymmetric_files_with_hidden_middle_file() {
                 hunk_idx: 0
             }
         ));
-        app.prev_hunk();
+        app.prev_hunks(1, false, now + Duration::from_millis(200));
+        assert_eq!(app.diff_state.current_file_idx, 2);
+        app.prev_hunks(1, false, now + Duration::from_millis(300));
         assert_eq!(app.diff_state.current_file_idx, 0);
         assert!(matches!(
             app.line_annotations[app.diff_state.cursor_line],
