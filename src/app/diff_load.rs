@@ -1118,7 +1118,7 @@ impl App {
     /// Periodically re-reads the local diff so uncommitted changes appear without
     /// pressing `:e`. Returns `true` when a redraw is needed.
     ///
-    /// Multi-key sequences (`dd`, `zz`, leader chords) are tracked by locals in
+    /// Multi-key sequences (`dd`, `zt`/`zb`, leader chords) are tracked by locals in
     /// the event loop rather than by `input_mode`, so a tick landing between the
     /// two keys is not deferred and can move the cursor under the second one.
     /// The window is one interval and the option is off by default.

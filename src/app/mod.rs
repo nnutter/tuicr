@@ -1350,6 +1350,8 @@ pub struct App {
     /// view; consumed by a second underflow press to walk to the
     /// previous file.
     pub primed_walk_prev: bool,
+    /// A recent hunk-navigation press waiting for a file-boundary double-tap.
+    pending_hunk_navigation: Option<navigation::PendingHunkNavigation>,
     /// Set when the Down arrow / `j` key is released after
     /// `primed_walk_next` was armed. The walk consumes only when both
     /// flags are true so held-key auto-repeat (Press, Repeat, Repeat...)
@@ -1363,6 +1365,7 @@ pub struct App {
     pub up_released_since_arm: bool,
     pub cursor_line_highlight: bool,
     pub leader_key: char,
+    pub center_view_key: String,
     pub scroll_offset: usize,
     pub file_list_area: Option<ratatui::layout::Rect>,
     pub comment_navigator_area: Option<ratatui::layout::Rect>,
@@ -1580,7 +1583,7 @@ impl DiffState {
 
     /// Minimum number of lines kept between the cursor and the viewport edge
     /// (equivalent to vim's `scrolloff`). Must be strictly less than half the
-    /// viewport to guarantee a stable free zone after centering (zz).
+    /// viewport to guarantee a stable free zone after centering the cursor.
     pub fn effective_scroll_margin(&self, scroll_offset: usize) -> usize {
         scroll_offset.min((self.effective_visible_lines() / 2).saturating_sub(1))
     }

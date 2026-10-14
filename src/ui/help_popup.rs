@@ -153,6 +153,19 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled(
+                format!(
+                    "  {:<10}",
+                    app.center_view_key
+                        .chars()
+                        .map(leader_display)
+                        .collect::<String>()
+                ),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("Center cursor on screen"),
+        ]),
+        Line::from(vec![
+            Span::styled(
                 "  {N}G      ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
@@ -170,7 +183,7 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
                 "  [/]       ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
-            Span::raw("Jump to prev/next hunk"),
+            Span::raw("Prev/next hunk (double-tap within 400 ms to cross files)"),
         ]),
         Line::from(vec![
             Span::styled(
@@ -281,7 +294,7 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         )),
         Line::from(""),
         Line::from(Span::raw(
-            "  One file at a time. j/k walks across files, ]/[ walks across hunks. Default in `--all-files`.",
+            "  One file at a time. j/k walks across files; ]/[ needs a double-tap to cross files. Default in `--all-files`.",
         )),
         Line::from(""),
         Line::from(Span::styled(

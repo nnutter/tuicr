@@ -20,6 +20,8 @@ pub enum Action {
     PrevHunk,
     NextComment,
     PrevComment,
+    CenterView,
+    PendingCenterView,
     PendingZCommand,
     PendingShiftZCommand,
     PendingLeaderCommand,
@@ -162,18 +164,71 @@ pub enum Action {
     None,
 }
 
+/// Tracks a multi-character center-view binding across normal-mode key events.
+/// A mismatch cancels the prefix and leaves the current key to normal handling.
+#[derive(Default)]
+pub struct CenterViewSequence {
+    prefix: String,
+}
+
+impl CenterViewSequence {
+    pub fn reset(&mut self) {
+        self.prefix.clear();
+    }
+
+    pub fn is_pending(&self) -> bool {
+        !self.prefix.is_empty()
+    }
+
+    pub fn map_key(&mut self, key: KeyEvent, binding: &str, leader: char) -> Option<Action> {
+        if binding.chars().count() < 2 {
+            self.reset();
+            return None;
+        }
+        let KeyCode::Char(ch) = key.code else {
+            self.reset();
+            return None;
+        };
+        if !matches!(key.modifiers, KeyModifiers::NONE | KeyModifiers::SHIFT)
+            || (self.prefix.is_empty() && ch == leader && key.modifiers == KeyModifiers::NONE)
+        {
+            self.reset();
+            return None;
+        }
+        self.prefix.push(ch);
+        if self.prefix == binding {
+            self.reset();
+            Some(Action::CenterView)
+        } else if binding.starts_with(&self.prefix) {
+            Some(Action::PendingCenterView)
+        } else {
+            self.reset();
+            None
+        }
+    }
+}
+
 pub fn map_key_to_action(key: KeyEvent, mode: InputMode, leader_key: char) -> Action {
-    map_key_to_action_with_q_quits(key, mode, leader_key, false)
+    map_key_to_action_with_q_quits(
+        key,
+        mode,
+        leader_key,
+        crate::config::DEFAULT_CENTER_VIEW_KEY,
+        false,
+    )
 }
 
 pub fn map_key_to_action_with_q_quits(
     key: KeyEvent,
     mode: InputMode,
     leader_key: char,
+    center_view_key: &str,
     q_quits: bool,
 ) -> Action {
     match mode {
-        InputMode::Normal => map_normal_mode_with_q_quits(key, leader_key, q_quits),
+        InputMode::Normal => {
+            map_normal_mode_with_q_quits(key, leader_key, center_view_key, q_quits)
+        }
         InputMode::Command => map_command_mode(key),
         InputMode::Search => map_search_mode(key),
         InputMode::Comment => map_comment_mode(key),
@@ -195,7 +250,12 @@ pub fn map_key_to_action_with_q_quits(
 
 #[cfg(test)]
 fn map_normal_mode(key: KeyEvent, leader_key: char) -> Action {
-    map_normal_mode_with_q_quits(key, leader_key, false)
+    map_normal_mode_with_q_quits(
+        key,
+        leader_key,
+        crate::config::DEFAULT_CENTER_VIEW_KEY,
+        false,
+    )
 }
 
 fn q_action(q_quits: bool) -> Action {
@@ -206,10 +266,21 @@ fn q_action(q_quits: bool) -> Action {
     }
 }
 
-fn map_normal_mode_with_q_quits(key: KeyEvent, leader_key: char, q_quits: bool) -> Action {
+fn map_normal_mode_with_q_quits(
+    key: KeyEvent,
+    leader_key: char,
+    center_view_key: &str,
+    q_quits: bool,
+) -> Action {
     match (key.code, key.modifiers) {
         (KeyCode::Char(key), KeyModifiers::NONE) if key == leader_key => {
             Action::PendingLeaderCommand
+        }
+
+        (KeyCode::Char(key), KeyModifiers::NONE | KeyModifiers::SHIFT)
+            if center_view_key.chars().eq(std::iter::once(key)) =>
+        {
+            Action::CenterView
         }
 
         // Cursor movement (vim-like: cursor moves, scroll follows when needed)
@@ -519,14 +590,26 @@ fn map_commit_select_mode_with_q_quits(key: KeyEvent, q_quits: bool) -> Action {
 /// notable override — in the diff it edits the comment at the cursor, in the
 /// tree it opens the include filter.
 pub fn map_file_tree_mode(key: KeyEvent, leader_key: char) -> Action {
-    map_file_tree_mode_with_q_quits(key, leader_key, false)
+    map_file_tree_mode_with_q_quits(
+        key,
+        leader_key,
+        crate::config::DEFAULT_CENTER_VIEW_KEY,
+        false,
+    )
 }
 
-pub fn map_file_tree_mode_with_q_quits(key: KeyEvent, leader_key: char, q_quits: bool) -> Action {
-    // The leader key wins: `;e` (toggle file list) must not be swallowed by
-    // the exclude-filter binding.
-    if key.code == KeyCode::Char(leader_key) && key.modifiers == KeyModifiers::NONE {
-        return map_normal_mode_with_q_quits(key, leader_key, q_quits);
+pub fn map_file_tree_mode_with_q_quits(
+    key: KeyEvent,
+    leader_key: char,
+    center_view_key: &str,
+    q_quits: bool,
+) -> Action {
+    // Configured bindings take precedence over file-tree filters.
+    if (key.code == KeyCode::Char(leader_key) && key.modifiers == KeyModifiers::NONE)
+        || (matches!(key.code, KeyCode::Char(ch) if center_view_key.chars().eq(std::iter::once(ch)))
+            && matches!(key.modifiers, KeyModifiers::NONE | KeyModifiers::SHIFT))
+    {
+        return map_normal_mode_with_q_quits(key, leader_key, center_view_key, q_quits);
     }
     match (key.code, key.modifiers) {
         (KeyCode::Char('i'), KeyModifiers::NONE) => Action::FileTreeFilterInclude,
@@ -534,7 +617,7 @@ pub fn map_file_tree_mode_with_q_quits(key: KeyEvent, leader_key: char, q_quits:
         (KeyCode::Char('I'), _) => Action::FileTreeClearInclude,
         (KeyCode::Char('E'), _) => Action::FileTreeClearExclude,
         (KeyCode::Char('/'), _) => Action::FileTreeSearch,
-        _ => map_normal_mode_with_q_quits(key, leader_key, q_quits),
+        _ => map_normal_mode_with_q_quits(key, leader_key, center_view_key, q_quits),
     }
 }
 
@@ -998,6 +1081,126 @@ mod tests {
     }
 
     #[test]
+    fn should_complete_center_view_sequences_without_firing_on_prefixes() {
+        for binding in ["zz", "abc", "λ界", "Xy"] {
+            let mut sequence = CenterViewSequence::default();
+            let chars: Vec<_> = binding.chars().collect();
+            for (index, ch) in chars.iter().enumerate() {
+                let modifiers = if ch.is_uppercase() {
+                    KeyModifiers::SHIFT
+                } else {
+                    KeyModifiers::NONE
+                };
+                let expected = if index + 1 == chars.len() {
+                    Action::CenterView
+                } else {
+                    Action::PendingCenterView
+                };
+                assert_eq!(
+                    sequence.map_key(KeyEvent::new(KeyCode::Char(*ch), modifiers), binding, ';'),
+                    Some(expected)
+                );
+            }
+            assert!(!sequence.is_pending());
+            assert_eq!(
+                sequence.map_key(key(KeyCode::Char(chars[0])), binding, ';'),
+                Some(Action::PendingCenterView)
+            );
+        }
+    }
+
+    #[test]
+    fn should_cancel_center_view_prefix_and_leave_other_keys_available() {
+        for next in [
+            key(KeyCode::Char('t')),
+            key(KeyCode::Char('b')),
+            key(KeyCode::Char('j')),
+            key(KeyCode::Esc),
+            KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL),
+        ] {
+            let mut sequence = CenterViewSequence::default();
+            assert_eq!(
+                sequence.map_key(key(KeyCode::Char('z')), "zz", ';'),
+                Some(Action::PendingCenterView)
+            );
+            assert_eq!(sequence.map_key(next, "zz", ';'), None);
+            assert!(!sequence.is_pending());
+            assert_eq!(
+                sequence.map_key(key(KeyCode::Char('z')), "zz", ';'),
+                Some(Action::PendingCenterView)
+            );
+            sequence.reset();
+            assert_eq!(
+                sequence.map_key(key(KeyCode::Char('z')), "zz", ';'),
+                Some(Action::PendingCenterView)
+            );
+        }
+        let mut sequence = CenterViewSequence::default();
+        assert_eq!(sequence.map_key(key(KeyCode::Char('z')), "zz", 'z'), None);
+    }
+
+    #[test]
+    fn should_center_view_with_backslash_by_default() {
+        assert_eq!(
+            map_key_to_action(
+                key(KeyCode::Char('\\')),
+                InputMode::Normal,
+                DEFAULT_LEADER_KEY
+            ),
+            Action::CenterView,
+        );
+        assert_eq!(
+            map_file_tree_mode(key(KeyCode::Char('\\')), DEFAULT_LEADER_KEY),
+            Action::CenterView,
+        );
+    }
+
+    #[test]
+    fn should_apply_custom_center_view_only_in_normal_mode() {
+        // Even a key normally claimed by the file tree can be configured.
+        let binding = "e";
+        for (event, expected) in [
+            (key(KeyCode::Char('e')), Action::CenterView),
+            (key(KeyCode::Char('\\')), Action::None),
+            (
+                KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
+                Action::ScrollViewDown(1),
+            ),
+        ] {
+            assert_eq!(
+                map_key_to_action_with_q_quits(
+                    event,
+                    InputMode::Normal,
+                    DEFAULT_LEADER_KEY,
+                    binding,
+                    false
+                ),
+                expected,
+            );
+            assert_eq!(
+                map_file_tree_mode_with_q_quits(event, DEFAULT_LEADER_KEY, binding, false),
+                expected,
+            );
+        }
+        for mode in [InputMode::Comment, InputMode::Command, InputMode::Search] {
+            assert_eq!(
+                map_key_to_action_with_q_quits(
+                    key(KeyCode::Char('e')),
+                    mode,
+                    DEFAULT_LEADER_KEY,
+                    binding,
+                    false
+                ),
+                Action::InsertChar('e'),
+            );
+        }
+        assert_eq!(
+            map_file_tree_mode_with_q_quits(key(KeyCode::Char('e')), 'e', binding, false),
+            Action::PendingLeaderCommand,
+        );
+    }
+
+    #[test]
     fn should_map_configured_leader_to_pending_leader_action() {
         let action = map_key_to_action(key(KeyCode::Char(',')), InputMode::Normal, ',');
         assert_eq!(action, Action::PendingLeaderCommand);
@@ -1178,11 +1381,21 @@ mod tests {
     #[test]
     fn should_map_q_to_quit_when_q_quits_is_enabled() {
         assert_eq!(
-            map_normal_mode_with_q_quits(key(KeyCode::Char('q')), DEFAULT_LEADER_KEY, true),
+            map_normal_mode_with_q_quits(
+                key(KeyCode::Char('q')),
+                DEFAULT_LEADER_KEY,
+                crate::config::DEFAULT_CENTER_VIEW_KEY,
+                true,
+            ),
             Action::Quit
         );
         assert_eq!(
-            map_file_tree_mode_with_q_quits(key(KeyCode::Char('q')), DEFAULT_LEADER_KEY, true),
+            map_file_tree_mode_with_q_quits(
+                key(KeyCode::Char('q')),
+                DEFAULT_LEADER_KEY,
+                crate::config::DEFAULT_CENTER_VIEW_KEY,
+                true,
+            ),
             Action::Quit
         );
         assert_eq!(

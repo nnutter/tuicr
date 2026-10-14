@@ -527,44 +527,184 @@ fn primed_walk_clears_on_non_overflow_cursor_move() {
 }
 
 #[test]
-fn next_hunk_crosses_into_next_file_in_single_file_view() {
-    let files = vec![
-        file("a.rs", vec![hunk(1, 3), hunk(10, 3)]),
-        file("b.rs", vec![hunk(1, 3), hunk(10, 3)]),
-    ];
-    let mut app = app_with(files);
-    app.is_single_file_view = true;
-    app.diff_state.current_file_idx = 0;
-    app.rebuild_annotations();
-    let positions = app.hunk_positions();
-    let last_hunk = *positions.last().expect("a.rs has two hunks");
-    app.diff_state.cursor_line = last_hunk;
+fn next_hunk_requires_double_tap_to_cross_files() {
+    for single in [false, true] {
+        let mut app = app_with(vec![
+            file("a.rs", vec![hunk(1, 3), hunk(10, 3)]),
+            file("b.rs", vec![hunk(1, 3), hunk(10, 3)]),
+        ]);
+        app.is_single_file_view = single;
+        app.rebuild_annotations();
+        let last_hunk = app
+            .line_annotations
+            .iter()
+            .position(|line| {
+                matches!(
+                    line,
+                    AnnotatedLine::HunkHeader {
+                        file_idx: 0,
+                        hunk_idx: 1
+                    }
+                )
+            })
+            .unwrap();
+        app.diff_state.cursor_line = last_hunk;
+        let scroll = app.diff_state.scroll_offset;
+        let now = Instant::now();
 
-    // From a.rs's last hunk, `]` should land on b.rs's first hunk.
-    app.next_hunk();
-    assert_eq!(app.diff_state.current_file_idx, 1);
-    let new_first = *app.hunk_positions().first().expect("b.rs has hunks");
-    assert_eq!(app.diff_state.cursor_line, new_first);
+        app.next_hunks(1, false, now);
+        assert_eq!(app.diff_state.current_file_idx, 0);
+        assert_eq!(app.diff_state.cursor_line, last_hunk);
+        assert_eq!(app.diff_state.scroll_offset, scroll);
+        app.next_hunks(1, false, now + Duration::from_millis(400));
+        assert_eq!(app.diff_state.current_file_idx, 1);
+        assert!(matches!(
+            app.line_annotations[app.diff_state.cursor_line],
+            AnnotatedLine::HunkHeader {
+                file_idx: 1,
+                hunk_idx: 0
+            }
+        ));
+    }
 }
 
 #[test]
-fn prev_hunk_crosses_into_prev_file_in_single_file_view() {
-    let files = vec![
-        file("a.rs", vec![hunk(1, 3), hunk(10, 3)]),
-        file("b.rs", vec![hunk(1, 3), hunk(10, 3)]),
-    ];
-    let mut app = app_with(files);
-    app.is_single_file_view = true;
-    app.diff_state.current_file_idx = 1;
-    app.rebuild_annotations();
-    let first_hunk = *app.hunk_positions().first().expect("b.rs has hunks");
-    app.diff_state.cursor_line = first_hunk;
+fn prev_hunk_requires_double_tap_to_cross_files() {
+    for single in [false, true] {
+        let mut app = app_with(vec![
+            file("a.rs", vec![hunk(1, 3), hunk(10, 3)]),
+            file("b.rs", vec![hunk(1, 3), hunk(10, 3)]),
+        ]);
+        app.is_single_file_view = single;
+        app.diff_state.current_file_idx = 1;
+        app.rebuild_annotations();
+        let first_hunk = app
+            .line_annotations
+            .iter()
+            .position(|line| {
+                matches!(
+                    line,
+                    AnnotatedLine::HunkHeader {
+                        file_idx: 1,
+                        hunk_idx: 0
+                    }
+                )
+            })
+            .unwrap();
+        app.diff_state.cursor_line = first_hunk;
+        let scroll = app.diff_state.scroll_offset;
+        let now = Instant::now();
 
-    // From b.rs's first hunk, `[` should land on a.rs's last hunk.
-    app.prev_hunk();
+        app.prev_hunks(1, false, now);
+        assert_eq!(app.diff_state.current_file_idx, 1);
+        assert_eq!(app.diff_state.cursor_line, first_hunk);
+        assert_eq!(app.diff_state.scroll_offset, scroll);
+        app.prev_hunks(1, false, now + Duration::from_millis(100));
+        assert_eq!(app.diff_state.current_file_idx, 0);
+        assert!(matches!(
+            app.line_annotations[app.diff_state.cursor_line],
+            AnnotatedLine::HunkHeader {
+                file_idx: 0,
+                hunk_idx: 1
+            }
+        ));
+    }
+}
+
+#[test]
+fn expired_cancelled_and_repeated_hunk_taps_do_not_cross_files() {
+    for single in [false, true] {
+        for (second_ms, repeat, cancel) in
+            [(401, false, false), (100, true, false), (100, false, true)]
+        {
+            let mut app = app_with(vec![
+                file("a.rs", vec![hunk(1, 3)]),
+                file("b.rs", vec![hunk(1, 3)]),
+            ]);
+            app.is_single_file_view = single;
+            app.rebuild_annotations();
+            app.diff_state.cursor_line = app.hunk_positions()[0];
+            let now = Instant::now();
+            app.next_hunks(1, false, now);
+            if cancel {
+                app.cancel_hunk_navigation();
+            }
+            app.next_hunks(1, repeat, now + Duration::from_millis(second_ms));
+            assert_eq!(app.diff_state.current_file_idx, 0);
+            // A fresh press can confirm an unexpired arm, but repeats never
+            // extend its original deadline.
+            app.next_hunks(1, false, now + Duration::from_millis(second_ms + 300));
+            assert_eq!(app.diff_state.current_file_idx, 1);
+        }
+    }
+}
+
+#[test]
+fn hunk_repeat_does_not_refresh_the_double_tap_deadline() {
+    let mut app = app_with(vec![
+        file("a.rs", vec![hunk(1, 3)]),
+        file("b.rs", vec![hunk(1, 3)]),
+    ]);
+    app.diff_state.cursor_line = app.hunk_positions()[0];
+    let now = Instant::now();
+    app.next_hunks(1, false, now);
+    app.next_hunks(1, true, now + Duration::from_millis(300));
+    app.next_hunks(1, false, now + Duration::from_millis(401));
     assert_eq!(app.diff_state.current_file_idx, 0);
-    let new_last = *app.hunk_positions().last().expect("a.rs has hunks");
-    assert_eq!(app.diff_state.cursor_line, new_last);
+    app.next_hunks(1, false, now + Duration::from_millis(500));
+    assert_eq!(app.diff_state.current_file_idx, 1);
+}
+
+#[test]
+fn hunk_count_stops_at_each_unconfirmed_file_boundary() {
+    for single in [false, true] {
+        let mut app = app_with(vec![
+            file("a.rs", vec![hunk(1, 3), hunk(10, 3)]),
+            file("b.rs", vec![hunk(1, 3), hunk(10, 3)]),
+            file("c.rs", vec![hunk(1, 3)]),
+        ]);
+        app.is_single_file_view = single;
+        app.rebuild_annotations();
+        app.diff_state.cursor_line = app.hunk_positions()[0];
+        let now = Instant::now();
+        app.next_hunks(5, false, now);
+        assert_eq!(app.diff_state.current_file_idx, 0);
+        assert!(matches!(
+            app.line_annotations[app.diff_state.cursor_line],
+            AnnotatedLine::HunkHeader {
+                file_idx: 0,
+                hunk_idx: 1
+            }
+        ));
+        app.next_hunks(5, false, now + Duration::from_millis(100));
+        assert_eq!(app.diff_state.current_file_idx, 1);
+        assert!(matches!(
+            app.line_annotations[app.diff_state.cursor_line],
+            AnnotatedLine::HunkHeader {
+                file_idx: 1,
+                hunk_idx: 1
+            }
+        ));
+    }
+}
+
+#[test]
+fn changing_hunk_direction_requires_a_new_double_tap() {
+    let mut app = app_with(vec![
+        file("a.rs", vec![hunk(1, 3)]),
+        file("b.rs", vec![hunk(1, 3)]),
+        file("c.rs", vec![hunk(1, 3)]),
+    ]);
+    app.diff_state.current_file_idx = 1;
+    app.diff_state.cursor_line = app.hunk_positions()[1];
+    let now = Instant::now();
+    app.next_hunks(1, false, now);
+    app.prev_hunks(1, false, now + Duration::from_millis(100));
+    assert_eq!(app.diff_state.current_file_idx, 1);
+    app.next_hunks(1, false, now + Duration::from_millis(200));
+    assert_eq!(app.diff_state.current_file_idx, 1);
+    app.next_hunks(1, false, now + Duration::from_millis(300));
+    assert_eq!(app.diff_state.current_file_idx, 2);
 }
 
 #[test]
