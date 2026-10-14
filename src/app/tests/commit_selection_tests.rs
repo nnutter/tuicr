@@ -598,7 +598,7 @@ fn should_show_the_newest_message_for_an_amend_range() {
     let path = PathBuf::from("src/only_in_commit.rs");
     let newest = CommitInfo {
         summary: "amend! Test commit".to_string(),
-        body: Some("new wording".to_string()),
+        body: Some("Replacement title\n\nnew wording".to_string()),
         ..normal_commit("c3")
     };
     let mut app = build_app(vec![
@@ -620,17 +620,18 @@ fn should_show_the_newest_message_for_an_amend_range() {
         .iter()
         .map(|line| line.content.as_str())
         .collect();
-    assert!(
-        rendered.contains(&"new wording"),
-        "the newest amend body should be readable, got {rendered:?}"
-    );
+    assert_eq!(rendered, ["Replacement title", "", "new wording"]);
 }
 
 #[test]
 fn should_show_the_newest_message_for_a_reword_range() {
     let path = PathBuf::from("src/only_in_commit.rs");
     let mut app = build_app(vec![
-        commit_with_summary("c2", "reword! Test commit"),
+        CommitInfo {
+            summary: "reword! Test commit".to_string(),
+            body: Some("Replacement title\n\nnew wording".to_string()),
+            ..normal_commit("c2")
+        },
         normal_commit("c1"),
     ]);
     app.review_commits = app.commit_list.clone();
@@ -639,10 +640,33 @@ fn should_show_the_newest_message_for_a_reword_range() {
     app.reload_inline_selection()
         .expect("loading should succeed");
 
+    let message = commit_message_file(&app).expect("a reword range should carry a message");
+    assert_eq!(message.display_path(), &commit_message_path("c2"));
+    let rendered: Vec<&str> = message.hunks[0]
+        .lines
+        .iter()
+        .map(|line| line.content.as_str())
+        .collect();
+    assert_eq!(rendered, ["Replacement title", "", "new wording"]);
+
+    app.commit_selection_range = Some((0, 0));
+    app.reload_inline_selection()
+        .expect("loading a single reword should succeed");
+    let message = commit_message_file(&app).expect("a single reword should carry its raw message");
+    let rendered: Vec<&str> = message.hunks[0]
+        .lines
+        .iter()
+        .map(|line| line.content.as_str())
+        .collect();
     assert_eq!(
-        commit_message_file(&app).map(|file| file.display_path().clone()),
-        Some(commit_message_path("c2")),
-        "a reword range should carry the newest message, not the original's"
+        rendered,
+        [
+            "reword! Test commit",
+            "",
+            "Replacement title",
+            "",
+            "new wording"
+        ]
     );
 }
 

@@ -37,7 +37,8 @@ impl App {
     /// commit followed only by `fixup!`/`amend!`/`reword!` commits targeting
     /// it), insert a "Commit Message" DiffFile at index 0. A pure `fixup!`
     /// stack shows the original's message; any `amend!` or `reword!` commit
-    /// replaces the message, so the newest such commit's message is shown.
+    /// replaces the message, so the newest such commit's body is shown
+    /// without its autosquash marker summary or the separator after it.
     ///
     /// The synthetic path embeds the commit's short id (`Commit Message (<sha>)`)
     /// so that comments on different commits' messages get distinct session keys
@@ -53,7 +54,11 @@ impl App {
             return;
         }
 
-        let commit_msg_file = Self::build_commit_message_file(&commit);
+        let inferred_stack = self
+            .commit_selection_range
+            .map_or(self.review_commits.len() > 1, |(start, end)| start != end);
+        let hide_marker = inferred_stack && Self::reword_target(&commit.summary).is_some();
+        let commit_msg_file = Self::build_commit_message_file(&commit, hide_marker);
         self.diff_files.insert(0, commit_msg_file);
         self.session.add_diff_file(&self.diff_files[0]);
     }
@@ -151,11 +156,17 @@ impl App {
         Some(summary)
     }
 
-    fn build_commit_message_file(commit: &CommitInfo) -> DiffFile {
-        let mut full_message = commit.summary.clone();
+    fn build_commit_message_file(commit: &CommitInfo, hide_marker: bool) -> DiffFile {
+        let mut full_message = if hide_marker {
+            String::new()
+        } else {
+            commit.summary.clone()
+        };
         if let Some(ref body) = commit.body {
-            full_message.push('\n');
-            full_message.push('\n');
+            if !hide_marker {
+                full_message.push('\n');
+                full_message.push('\n');
+            }
             full_message.push_str(body);
         }
 
