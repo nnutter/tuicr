@@ -1,6 +1,18 @@
 use super::*;
 use crate::ui::row_height::annotation_row_height;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HunkDirection {
+    Next,
+    Previous,
+}
+
+struct HunkTarget {
+    file_idx: usize,
+    /// None means resolve the first/last hunk after switching single-file views.
+    row: Option<usize>,
+}
+
 impl App {
     pub fn cursor_down(&mut self, lines: usize) {
         let max_line = self.max_cursor_line();
@@ -888,73 +900,88 @@ impl App {
             .collect()
     }
 
-    pub fn next_hunk(&mut self) {
+    fn hunk_target(&self, direction: HunkDirection) -> Option<HunkTarget> {
+        let positions = self.hunk_positions();
+        let row = match direction {
+            HunkDirection::Next => positions
+                .into_iter()
+                .find(|&row| row > self.diff_state.cursor_line),
+            HunkDirection::Previous => positions
+                .into_iter()
+                .rev()
+                .find(|&row| row < self.diff_state.cursor_line),
+        };
+        if let Some(row) = row {
+            let AnnotatedLine::HunkHeader { file_idx, .. } = self.line_annotations[row] else {
+                unreachable!("hunk_positions returns only hunk headers");
+            };
+            return Some(HunkTarget {
+                file_idx,
+                row: Some(row),
+            });
+        }
+        if self.is_single_file_view {
+            // Hidden files render nothing, so do not land on an empty pane.
+            let file_idx = match direction {
+                HunkDirection::Next => ((self.diff_state.current_file_idx + 1)
+                    ..self.diff_files.len())
+                    .find(|&idx| self.file_idx_passes_filter(idx)),
+                HunkDirection::Previous => (0..self.diff_state.current_file_idx)
+                    .rev()
+                    .find(|&idx| self.file_idx_passes_filter(idx)),
+            };
+            if let Some(file_idx) = file_idx {
+                return Some(HunkTarget {
+                    file_idx,
+                    row: None,
+                });
+            }
+        }
+        match direction {
+            HunkDirection::Next => None,
+            HunkDirection::Previous => Some(HunkTarget {
+                file_idx: self.diff_state.current_file_idx,
+                row: Some(0),
+            }),
+        }
+    }
+
+    fn move_to_hunk_target(&mut self, target: HunkTarget, direction: HunkDirection) {
+        let row = if let Some(row) = target.row {
+            Some(row)
+        } else {
+            self.jump_to_file(target.file_idx);
+            let positions = self.hunk_positions();
+            match direction {
+                HunkDirection::Next => positions.first().copied(),
+                HunkDirection::Previous => Some(positions.last().copied().unwrap_or(0)),
+            }
+        };
+        if let Some(row) = row {
+            self.diff_state.cursor_line = row;
+            self.ensure_cursor_visible();
+            self.update_current_file_from_cursor();
+        }
+    }
+
+    fn navigate_hunk(&mut self, direction: HunkDirection) {
         // Hunk navigation is a deliberate move, not a continuation of a
         // boundary walk. Clear any in-flight cursor-walk arming.
         self.primed_walk_next = false;
         self.primed_walk_prev = false;
         self.down_released_since_arm = false;
         self.up_released_since_arm = false;
-        for pos in self.hunk_positions() {
-            if pos > self.diff_state.cursor_line {
-                self.diff_state.cursor_line = pos;
-                self.ensure_cursor_visible();
-                self.update_current_file_from_cursor();
-                return;
-            }
-        }
-        // No further hunks in the current frame. Single-file view crosses
-        // into the next file's first hunk so `]` can step the codebase
-        // hunk-by-hunk without breaking on file boundaries.
-        if self.is_single_file_view {
-            // Step over files hidden by a file-tree filter: they render
-            // nothing, so landing on one would show an empty pane.
-            let next_idx = ((self.diff_state.current_file_idx + 1)..self.diff_files.len())
-                .find(|&idx| self.file_idx_passes_filter(idx));
-            if let Some(next_idx) = next_idx {
-                self.jump_to_file(next_idx);
-                if let Some(&first) = self.hunk_positions().first() {
-                    self.diff_state.cursor_line = first;
-                    self.ensure_cursor_visible();
-                    self.update_current_file_from_cursor();
-                }
-            }
+        if let Some(target) = self.hunk_target(direction) {
+            self.move_to_hunk_target(target, direction);
         }
     }
 
+    pub fn next_hunk(&mut self) {
+        self.navigate_hunk(HunkDirection::Next);
+    }
+
     pub fn prev_hunk(&mut self) {
-        self.primed_walk_next = false;
-        self.primed_walk_prev = false;
-        self.down_released_since_arm = false;
-        self.up_released_since_arm = false;
-        let positions = self.hunk_positions();
-        for &pos in positions.iter().rev() {
-            if pos < self.diff_state.cursor_line {
-                self.diff_state.cursor_line = pos;
-                self.ensure_cursor_visible();
-                self.update_current_file_from_cursor();
-                return;
-            }
-        }
-        // Symmetric to next_hunk: in single-file view, fall through to the
-        // previous file's last hunk so `[` keeps stepping backward across
-        // files.
-        if self.is_single_file_view
-            && let Some(prev_idx) = (0..self.diff_state.current_file_idx)
-                .rev()
-                .find(|&idx| self.file_idx_passes_filter(idx))
-        {
-            self.jump_to_file(prev_idx);
-            if let Some(&last) = self.hunk_positions().last() {
-                self.diff_state.cursor_line = last;
-                self.ensure_cursor_visible();
-                self.update_current_file_from_cursor();
-                return;
-            }
-        }
-        self.diff_state.cursor_line = 0;
-        self.ensure_cursor_visible();
-        self.update_current_file_from_cursor();
+        self.navigate_hunk(HunkDirection::Previous);
     }
 
     pub(in crate::app) fn calculate_file_scroll_offset(&self, file_idx: usize) -> usize {
