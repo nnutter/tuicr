@@ -227,6 +227,7 @@ Repository-managed agent integrations:
 - **Collaborative session writes**: session JSON saves use a storage lock plus temp-file rename, with stale sidecar lock recovery if a process crashes while holding the lock. The TUI keeps a persisted-session snapshot so polling, `:e`, and autosave can merge external `tuicr review add` comments without overwriting local edits.
 - **Clipboard**: Uses `arboard` crate for cross-platform clipboard support
 - **Hunk navigation**: `next_hunk()`/`prev_hunk()` calculate positions by iterating through files
+- **Viewport centering**: `center_view` config selects a non-empty normal-mode character sequence (default `\`, with `zz` available as an override). `App::center_view_key` is shared by the diff/tree key maps and help. `CenterViewSequence` tracks multi-character prefixes in the event loop. The leader key takes precedence over the first character. A mismatch cancels the prefix and handles the current key normally. `zt`/`zb` still use the pending `z` sequence.
 - **Ignore filtering**: `.tuicrignore` is applied whenever diffs are loaded/reloaded
 - **File-tree filters**: `i`/`e` regex filters narrow the tree *and* the diff at render/measure
   time (`App::file_passes_filter`), unlike `.tuicrignore` which drops files at load time. They

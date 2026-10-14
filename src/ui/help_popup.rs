@@ -153,6 +153,19 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled(
+                format!(
+                    "  {:<10}",
+                    app.center_view_key
+                        .chars()
+                        .map(leader_display)
+                        .collect::<String>()
+                ),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("Center cursor on screen"),
+        ]),
+        Line::from(vec![
+            Span::styled(
                 "  {N}G      ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),

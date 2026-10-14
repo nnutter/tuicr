@@ -585,6 +585,7 @@ impl App {
             up_released_since_arm: false,
             cursor_line_highlight: true,
             leader_key: crate::config::DEFAULT_LEADER_KEY,
+            center_view_key: crate::config::DEFAULT_CENTER_VIEW_KEY.to_string(),
             scroll_offset: 0,
             file_list_area: None,
             comment_navigator_area: None,

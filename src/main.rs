@@ -263,6 +263,9 @@ fn main() -> anyhow::Result<()> {
                 if let Some(leader) = cfg.leader {
                     app.leader_key = leader;
                 }
+                if let Some(center_view) = &cfg.center_view {
+                    app.center_view_key = center_view.clone();
+                }
                 app.comment_vim_enabled = cfg.comment_vim.unwrap_or(false);
                 app.q_quits = cfg.q_quits.unwrap_or(false);
                 app.editor_override = cfg.editor.clone();
@@ -404,8 +407,9 @@ fn main() -> anyhow::Result<()> {
         app.set_warning(message.clone());
     }
 
-    // Track pending z command for zz centering
+    // Track pending z command for zt/zb viewport positioning
     let mut pending_z = false;
+    let mut center_view_sequence = tuicr::input::keybindings::CenterViewSequence::default();
     // Track pending Z command for ZZ export+quit / ZQ quit
     let mut pending_shift_z = false;
     // Track pending d command for dd delete
@@ -520,6 +524,8 @@ fn main() -> anyhow::Result<()> {
                             .modifiers
                             .contains(crossterm::event::KeyModifiers::CONTROL)
                     {
+                        center_view_sequence.reset();
+                        pending_z = false;
                         // If in comment mode, cancel the comment first
                         if app.input_mode == InputMode::Comment {
                             app.exit_comment_mode();
@@ -544,14 +550,44 @@ fn main() -> anyhow::Result<()> {
                         app.message = None;
                     }
 
-                    // Handle pending z command for zz/zt/zb viewport positioning
+                    // Resolve configured sequences before built-in zt/zb chords.
+                    // Keep a first `z` pending so a mismatched sequence can still
+                    // fall through to those viewport-positioning commands.
+                    if app.input_mode == InputMode::Normal
+                        && !app.file_tree_prompt_editing()
+                        && !pending_d
+                        && !pending_shift_z
+                        && !pending_leader
+                    {
+                        let was_pending = center_view_sequence.is_pending();
+                        match center_view_sequence.map_key(
+                            key,
+                            &app.center_view_key,
+                            app.leader_key,
+                        ) {
+                            Some(Action::CenterView) => {
+                                pending_z = false;
+                                app.center_cursor();
+                                app.pending_count = None;
+                                continue;
+                            }
+                            Some(Action::PendingCenterView) => {
+                                pending_z = !was_pending
+                                    && key.code == crossterm::event::KeyCode::Char('z')
+                                    && key.modifiers == crossterm::event::KeyModifiers::NONE;
+                                app.pending_count = None;
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        center_view_sequence.reset();
+                    }
+
+                    // Handle pending z command for zt/zb viewport positioning
                     if pending_z {
                         pending_z = false;
                         match key.code {
-                            crossterm::event::KeyCode::Char('z') => {
-                                app.center_cursor();
-                                continue;
-                            }
                             crossterm::event::KeyCode::Char('t') => {
                                 app.cursor_to_top();
                                 continue;
@@ -696,18 +732,29 @@ fn main() -> anyhow::Result<()> {
                     {
                         // The tree claims i/e/I/E and `/` for filtering; the
                         // diff keeps its own meanings for those keys.
-                        map_file_tree_mode_with_q_quits(key, app.leader_key, app.q_quits)
+                        map_file_tree_mode_with_q_quits(
+                            key,
+                            app.leader_key,
+                            &app.center_view_key,
+                            app.q_quits,
+                        )
                     } else {
                         map_key_to_action_with_q_quits(
                             key,
                             app.input_mode,
                             app.leader_key,
+                            &app.center_view_key,
                             app.q_quits,
                         )
                     };
 
                     // Handle pending command setters (these work in any mode)
                     match action {
+                        Action::CenterView => {
+                            app.center_cursor();
+                            app.pending_count = None;
+                            continue;
+                        }
                         Action::PendingZCommand => {
                             pending_z = true;
                             app.pending_count = None;

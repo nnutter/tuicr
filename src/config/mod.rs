@@ -55,6 +55,7 @@ impl<'de> Deserialize<'de> for IgnoreWhitespaceConfig {
 }
 
 pub const DEFAULT_LEADER_KEY: char = ';';
+pub const DEFAULT_CENTER_VIEW_KEY: &str = "\\";
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(default)]
@@ -206,6 +207,8 @@ pub struct AppConfig {
     /// Defaults to 4 (matching diff tab expansion).
     pub comment_tab_width: Option<usize>,
     pub leader: Option<char>,
+    /// Character sequence to center the diff cursor in the viewport.
+    pub center_view: Option<String>,
     pub editor: Option<String>,
     pub transparent_background: Option<bool>,
     pub scroll_offset: Option<usize>,
@@ -276,6 +279,7 @@ const KNOWN_KEYS: &[&str] = &[
     "q_quits",
     "comment_tab_width",
     "leader",
+    "center_view",
     "editor",
     "transparent_background",
     "scroll_offset",
@@ -402,6 +406,20 @@ fn read_leader(table: &toml::Table, warnings: &mut Vec<String>) -> Option<char> 
             );
             None
         }
+    }
+}
+
+/// Read a non-empty character sequence for the center-view binding.
+fn read_center_view(table: &toml::Table, warnings: &mut Vec<String>) -> Option<String> {
+    let raw = read_string(table, "center_view", warnings)?;
+    if raw.is_empty() {
+        warnings.push(
+            "Warning: Config key 'center_view' must be a non-empty string; ignoring value"
+                .to_string(),
+        );
+        None
+    } else {
+        Some(raw)
     }
 }
 
@@ -625,6 +643,7 @@ fn load_config_from_path(path: &Path) -> Result<ConfigLoadOutcome> {
         q_quits: read_bool(table, "q_quits", &mut warnings),
         comment_tab_width: read_usize(table, "comment_tab_width", &mut warnings),
         leader: read_leader(table, &mut warnings),
+        center_view: read_center_view(table, &mut warnings),
         editor: read_string(table, "editor", &mut warnings),
         transparent_background: read_bool(table, "transparent_background", &mut warnings),
         scroll_offset: read_usize(table, "scroll_offset", &mut warnings),
@@ -1780,6 +1799,49 @@ mod tests {
             outcome.warnings[0],
             "Warning: Config key 'q_quits' must be a boolean; ignoring value"
         );
+    }
+
+    #[test]
+    fn should_parse_center_view_binding() {
+        for (input, expected) in [
+            ("center_view = '\\'", "\\"),
+            ("center_view = 'x'", "x"),
+            ("center_view = 'zz'", "zz"),
+            ("center_view = 'λ界'", "λ界"),
+        ] {
+            let outcome = parse_config(input);
+            assert_eq!(
+                outcome
+                    .config
+                    .as_ref()
+                    .and_then(|cfg| cfg.center_view.as_deref()),
+                Some(expected)
+            );
+            assert!(outcome.warnings.is_empty());
+        }
+    }
+
+    #[test]
+    fn should_warn_and_ignore_invalid_center_view_binding() {
+        for (input, reason) in [
+            ("center_view = ''", "a non-empty string"),
+            ("center_view = true", "a string"),
+        ] {
+            let outcome = parse_config(input);
+            assert_eq!(
+                outcome
+                    .config
+                    .as_ref()
+                    .and_then(|cfg| cfg.center_view.as_deref()),
+                None
+            );
+            assert_eq!(
+                outcome.warnings,
+                vec![format!(
+                    "Warning: Config key 'center_view' must be {reason}; ignoring value"
+                )]
+            );
+        }
     }
 
     // leader

@@ -305,6 +305,7 @@ A first-session cheatsheet. Press `?` inside tuicr for the full reference.
 | `j` / `k` | Down / up |
 | `Ctrl-d` / `Ctrl-u` | Half-page down / up |
 | `g` / `G` | Top / bottom |
+| `\` | Center cursor on screen |
 | `{` / `}` | Previous / next file |
 | `[` / `]` | Previous / next hunk |
 | `m` / `M` | Next / previous comment |
