@@ -26,9 +26,9 @@ The binding does not apply in text-input or modal views.
 | `Ctrl-f` / `Ctrl-b` | Full page down / up |
 | `g` / `G` | Go to first / last file |
 | `{N}G` | Go to source line N in current file |
-| `{N}{motion}` | Vim-style count prefix — repeats `j` / `k` / `h` / `l` / `{` / `}` / `[` / `]` `N` times |
-| `{` / `}` | Jump to previous / next file |
-| `[` / `]` | Jump to previous / next hunk; double-tap within 400 ms to cross a file boundary |
+| `{N}{motion}` | Vim-style count prefix — repeats `j` / `k` / `h` / `l` / `[` / `]` / `{` / `}` `N` times |
+| `[` / `]` | Jump to previous / next file |
+| `{` / `}` | Jump to previous / next hunk; double-tap within 400 ms to cross a file boundary |
 | `m` / `M` | Jump to next / previous comment |
 | `/` | Search within diff (case-insensitive); matches on diff content are highlighted and the status bar shows the `[current/total]` position (headers, comments, and PR info are searchable but not highlighted) |
 | `n` / `N` | Next / previous search match (wraps around) |
@@ -38,12 +38,15 @@ The binding does not apply in text-input or modal views.
 | `\` | Center cursor on screen (configurable with `center_view`) |
 | `zb` | Scroll cursor to bottom of screen |
 
+On a US keyboard, `{` and `}` need Shift. This matches `R` for hunk review,
+while `[` / `]` and `r` do not need Shift.
+
 Hunk navigation within a file needs one press.
 At a file boundary, the first press leaves the cursor and viewport unchanged.
 Press the same hunk-navigation key again within 400 ms to cross the boundary.
 A different key or an expired timer cancels the first press.
 This applies in both continuous and single-file views.
-Numeric counts such as `5]` stop at each unconfirmed file boundary.
+Numeric counts such as `5}` stop at each unconfirmed file boundary.
 Reported key-repeat events do not confirm or extend the double-tap window.
 Terminals without repeat-event reporting cannot distinguish a held key from separate presses.
 
@@ -83,7 +86,7 @@ relative path** (`^src/`, `\.rs$`, `test|spec`). Both can be active at once:
 include runs first, then exclude removes from what's left.
 
 A filter is not just a tree view — hidden files also disappear from the diff
-pane, from `{`/`}` file navigation, `[`/`]` hunk navigation, and from the file
+pane, from `[`/`]` file navigation, `{`/`}` hunk navigation, and from the file
 and `+/-` counts in the header. The tree title reports how much is hidden
 (`Files · 2/12 · 12 of 58`), and the active patterns show in its bottom border.
 
@@ -101,9 +104,9 @@ when tuicr restarts, but they survive a `:e` reload.
 `:set noreviewed` / `:set reviewed` / `:set reviewed!` (or the bare `:reviewed`)
 hide or show files already marked reviewed with `r`. There is deliberately no
 single-key binding: `H` is a vim motion, and this is a command-only feature. Like
-`i` / `e`, hidden files leave the tree, the diff pane, `{`/`}` and `[`/`]`
-navigation, `/` search, and the `+/-` counts in the header — so the header reports
-the diff still left to review.
+`i` / `e`, hidden files leave the tree, the diff pane, `[`/`]` file navigation,
+`{`/`}` hunk navigation, `/` search, and the `+/-` counts in the header — so
+the header reports the diff still left to review.
 
 Two things stay deliberately unaffected. The tree title keeps counting reviewed
 files in its `reviewed/total` fraction, since scoping it to the visible rows would

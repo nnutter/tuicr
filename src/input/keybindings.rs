@@ -299,11 +299,12 @@ fn map_normal_mode_with_q_quits(
         (KeyCode::Char('z'), KeyModifiers::NONE) => Action::PendingZCommand,
         (KeyCode::Char('Z'), _) => Action::PendingShiftZCommand,
 
-        // File navigation (use _ for modifiers since shift is implicit in the character)
-        (KeyCode::Char('}'), _) => Action::NextFile,
-        (KeyCode::Char('{'), _) => Action::PrevFile,
-        (KeyCode::Char(']'), _) => Action::NextHunk,
-        (KeyCode::Char('['), _) => Action::PrevHunk,
+        // File navigation uses unshifted square brackets.
+        (KeyCode::Char(']'), _) => Action::NextFile,
+        (KeyCode::Char('['), _) => Action::PrevFile,
+        // Hunk navigation uses braces, which require Shift on common layouts.
+        (KeyCode::Char('}'), _) => Action::NextHunk,
+        (KeyCode::Char('{'), _) => Action::PrevHunk,
         (KeyCode::Char('m'), KeyModifiers::NONE) => Action::NextComment,
         (KeyCode::Char('M'), _) => Action::PrevComment,
         (KeyCode::Char(')'), _) => Action::CycleCommitNext,
@@ -744,6 +745,26 @@ mod tests {
     }
 
     #[test]
+    fn should_map_square_brackets_to_files_and_braces_to_hunks() {
+        assert_eq!(
+            map_normal_mode(key(KeyCode::Char('[')), DEFAULT_LEADER_KEY),
+            Action::PrevFile
+        );
+        assert_eq!(
+            map_normal_mode(key(KeyCode::Char(']')), DEFAULT_LEADER_KEY),
+            Action::NextFile
+        );
+        assert_eq!(
+            map_normal_mode(key_shift('{'), DEFAULT_LEADER_KEY),
+            Action::PrevHunk
+        );
+        assert_eq!(
+            map_normal_mode(key_shift('}'), DEFAULT_LEADER_KEY),
+            Action::NextHunk
+        );
+    }
+
+    #[test]
     fn should_leave_shift_h_unbound_for_vim_motions() {
         // Reviewed-file visibility is command-only (`:set reviewed!`). `H` is a
         // vim motion, and this project deliberately does not spend new
@@ -964,9 +985,15 @@ mod tests {
     }
 
     #[test]
-    fn should_map_uppercase_r_to_toggle_hunk_reviewed_in_normal_mode() {
-        let action = map_normal_mode(key_shift('R'), DEFAULT_LEADER_KEY);
-        assert_eq!(action, Action::ToggleHunkReviewed);
+    fn should_map_lowercase_and_uppercase_r_to_file_and_hunk_review() {
+        assert_eq!(
+            map_normal_mode(key(KeyCode::Char('r')), DEFAULT_LEADER_KEY),
+            Action::ToggleReviewed
+        );
+        assert_eq!(
+            map_normal_mode(key_shift('R'), DEFAULT_LEADER_KEY),
+            Action::ToggleHunkReviewed
+        );
     }
 
     #[test]

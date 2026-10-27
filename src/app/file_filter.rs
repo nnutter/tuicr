@@ -4,10 +4,10 @@
 //! stays an absolute index into `diff_files`, so nothing downstream needs
 //! remapping. Every consumer that walks files asks `file_passes_filter`:
 //!
-//! - `build_visible_items` (tree, and therefore `}`/`{` file nav)
+//! - `build_visible_items` (tree, and therefore `]`/`[` file nav)
 //! - `rebuild_annotations` (diff content, comment navigator)
 //! - `file_render_height` / `effective_file_height` (scroll math -> 0 lines)
-//! - `hunk_positions` (`]`/`[`)
+//! - `hunk_positions` (`}`/`{`)
 //! - both diff renderers
 //!
 //! Search is deliberately weaker: it only moves the tree selection, leaving

@@ -172,9 +172,9 @@ pub struct Comment {
 | `Ctrl-d/u` | Half page down/up |
 | `Ctrl-f/b` | Full page down/up |
 | `gg/G` | Go to first/last file |
-| `{/}` | Jump to previous/next file header |
+| `[` / `]` | Jump to previous/next file header |
 | `[c/]c` | Jump to previous/next comment |
-| `[[/]]` | Jump to previous/next hunk |
+| `{` / `}` | Jump to previous/next hunk |
 
 ### File List Navigation
 | Key | Action |
@@ -304,7 +304,7 @@ Auto-saves every 60 seconds and on file navigation.
    - Run `tuicr` in that directory
    - Scroll through all diffs with `j/k` and `Ctrl-d/u`
    - Verify file list `▶` indicator updates as you scroll
-   - Use `{/}` to jump between file headers
+   - Use `[` / `]` to jump between file headers
    - Press `Tab` to focus file list, use `Enter` to jump to a file
    - Add line comments with `c`, file comments with `C`
    - Mark files reviewed with `r`

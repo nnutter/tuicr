@@ -173,14 +173,14 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled(
-                "  {/}       ",
+                "  [/]       ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::raw("Jump to prev/next file"),
         ]),
         Line::from(vec![
             Span::styled(
-                "  [/]       ",
+                "  {/}       ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::raw("Prev/next hunk (double-tap within 400 ms to cross files)"),
@@ -294,7 +294,7 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         )),
         Line::from(""),
         Line::from(Span::raw(
-            "  One file at a time. j/k walks across files; ]/[ needs a double-tap to cross files. Default in `--all-files`.",
+            "  One file at a time. j/k walks across files; {/} needs a double-tap to cross files. Default in `--all-files`.",
         )),
         Line::from(""),
         Line::from(Span::styled(
