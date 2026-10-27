@@ -263,7 +263,7 @@ pub(super) fn render_unified_diff(frame: &mut Frame, app: &mut App, area: Rect) 
 
     for (file_idx, file) in app.diff_files.iter().enumerate() {
         // Single-file view hides every file except the one the cursor is
-        // currently on. Navigation (`}`/`{`, file list) flips
+        // currently on. Navigation (`]`/`[`, file list) flips
         // `current_file_idx` and the next render shows the new file.
         if app.is_single_file_view && file_idx != app.diff_state.current_file_idx {
             continue;
