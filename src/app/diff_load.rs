@@ -193,10 +193,9 @@ impl App {
         let content_hash = DiffFile::compute_content_hash(&hunks);
         DiffFile {
             old_path: None,
-            new_path: Some(PathBuf::from(format!(
-                "Commit Message ({})",
-                commit.short_id
-            ))),
+            new_path: Some(crate::model::diff_types::commit_message_path(
+                &commit.short_id,
+            )),
             status: FileStatus::Added,
             hunks,
             is_binary: false,
