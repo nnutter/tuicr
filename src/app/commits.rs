@@ -967,6 +967,7 @@ impl App {
             &self.vcs_info,
             &selected_ids,
             Self::commit_range_base(self.vcs.as_ref(), &revision_range).as_deref(),
+            &diff_files,
         );
 
         // Add files to session

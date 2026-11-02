@@ -1,5 +1,8 @@
 use super::*;
 
+use crate::model::diff_types::commit_message_short_id;
+use crate::persistence::storage::load_commit_range_predecessor;
+
 impl App {
     /// Slug for the currently active session, derived from the session's
     /// embedded fields. Returns `None` if derivation fails (e.g., a local
@@ -447,14 +450,16 @@ impl App {
         vcs.commit_parent(oldest).ok().flatten()
     }
 
-    /// Load or create the session for a commit range.
+    /// Load the session for a commit range, or seed one from the review of the
+    /// range that this one replaces.
     ///
-    /// `commit_range_base` is the boundary that the range sits on. It is
-    /// recorded so that a later review of a rewritten range can find this one.
+    /// `commit_range_base` is the boundary that the range sits on, and
+    /// `diff_files` is the range's diff; both are needed to resume a review.
     pub(in crate::app) fn load_or_create_commit_range_session(
         vcs_info: &VcsInfo,
         commit_ids: &[String],
         commit_range_base: Option<&str>,
+        diff_files: &[DiffFile],
     ) -> ReviewSession {
         let newest_commit_id = commit_ids.last().cloned().unwrap_or_default();
         let loaded = load_latest_session_for_context(
@@ -467,15 +472,58 @@ impl App {
         .ok()
         .and_then(|found| found.map(|(_path, session)| session));
 
-        let session = loaded.unwrap_or_else(|| {
-            ReviewSession::new(
-                vcs_info.root_path.clone(),
-                newest_commit_id,
-                vcs_info.branch_name.clone(),
-                SessionDiffSource::CommitRange,
+        let session = match loaded {
+            Some(session) => session,
+            None => Self::resume_commit_range_session(
+                vcs_info,
+                commit_ids,
+                commit_range_base,
+                diff_files,
             )
-        });
+            .unwrap_or_else(|| {
+                ReviewSession::new(
+                    vcs_info.root_path.clone(),
+                    newest_commit_id.clone(),
+                    vcs_info.branch_name.clone(),
+                    SessionDiffSource::CommitRange,
+                )
+            }),
+        };
         Self::adopt_commit_range(session, vcs_info, commit_ids, commit_range_base)
+    }
+
+    /// Seed a session from the newest review of the range whose commits this
+    /// range replaced.
+    ///
+    /// A rewrite gives every commit in the range a new id, so the previous
+    /// review stays filed under a context that no longer occurs. The boundary
+    /// below the range survives the rewrite, which is what identifies it.
+    /// Reviewed marks and comments carry over for the files whose diff did not
+    /// change; `ReviewSession::add_diff_file` resets the rest through their
+    /// content hash, and a rewritten commit's message file gets a new path, so
+    /// it starts unreviewed.
+    fn resume_commit_range_session(
+        vcs_info: &VcsInfo,
+        commit_ids: &[String],
+        commit_range_base: Option<&str>,
+        diff_files: &[DiffFile],
+    ) -> Option<ReviewSession> {
+        let base = commit_range_base?;
+        let (_path, mut session) =
+            load_commit_range_predecessor(&vcs_info.root_path, base, commit_ids)
+                .ok()
+                .flatten()?;
+        // Files that left the range keep their entry only when it is a
+        // commit-message file for a commit that is still in the range. Every
+        // other stale entry would count towards the review total without a
+        // row to act on, so a review could never look complete again.
+        session.files.retain(|path, _| {
+            diff_files.iter().any(|file| file.display_path() == path)
+                || commit_message_short_id(path)
+                    .is_some_and(|short| commit_ids.iter().any(|id| id.starts_with(short)))
+        });
+        session.id = uuid::Uuid::new_v4().to_string();
+        Some(session)
     }
 
     /// Point a session at the range this review covers.

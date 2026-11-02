@@ -253,6 +253,7 @@ impl App {
                 &vcs_info,
                 &commit_ids,
                 Self::commit_range_base(vcs.as_ref(), &revision_range).as_deref(),
+                &diff_files,
             );
             // Get commit info for the inline commit selector
             let review_commits = crate::profile::time_with(

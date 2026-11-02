@@ -1,4 +1,5 @@
 mod change_status_tests;
+mod commit_range_resume_tests;
 mod commit_scoped_comment_tests;
 mod commit_selection_tests;
 mod decoration_skip_tests;
@@ -22,3 +23,23 @@ mod target_selector_tests;
 mod theme_picker_tests;
 mod tree_tests;
 mod visual_selection_tests;
+
+/// Redirects persisted-session storage to a temp dir for the current thread, so
+/// a test never reads or writes the real reviews directory.
+pub(crate) struct TestReviewsDir {
+    _dir: tempfile::TempDir,
+}
+
+impl TestReviewsDir {
+    pub(crate) fn new() -> Self {
+        let dir = tempfile::tempdir().expect("failed to create test reviews dir");
+        crate::persistence::storage::set_test_reviews_dir(Some(dir.path().to_path_buf()));
+        Self { _dir: dir }
+    }
+}
+
+impl Drop for TestReviewsDir {
+    fn drop(&mut self) {
+        crate::persistence::storage::set_test_reviews_dir(None);
+    }
+}
