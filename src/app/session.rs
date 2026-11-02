@@ -431,12 +431,32 @@ impl App {
         false
     }
 
-    /// Load or create a session for a commit range (used by revisions and commit selection).
+    /// Boundary that a structured commit range sits on.
+    ///
+    /// A revision expression names the boundary directly; a range that the
+    /// user selected from the commit list sits on the parent of its oldest
+    /// commit.
+    pub(in crate::app) fn commit_range_base(
+        vcs: &dyn VcsBackend,
+        range: &ResolvedRevisionRange<'_>,
+    ) -> Option<String> {
+        if let RevisionDiffTarget::Explicit { base, .. } = &range.diff_target {
+            return base.clone();
+        }
+        let oldest = range.commit_ids.first()?;
+        vcs.commit_parent(oldest).ok().flatten()
+    }
+
+    /// Load or create the session for a commit range.
+    ///
+    /// `commit_range_base` is the boundary that the range sits on. It is
+    /// recorded so that a later review of a rewritten range can find this one.
     pub(in crate::app) fn load_or_create_commit_range_session(
         vcs_info: &VcsInfo,
         commit_ids: &[String],
+        commit_range_base: Option<&str>,
     ) -> ReviewSession {
-        let newest_commit_id = commit_ids.last().unwrap().clone();
+        let newest_commit_id = commit_ids.last().cloned().unwrap_or_default();
         let loaded = load_latest_session_for_context(
             &vcs_info.root_path,
             vcs_info.branch_name.as_deref(),
@@ -447,19 +467,35 @@ impl App {
         .ok()
         .and_then(|found| found.map(|(_path, session)| session));
 
-        let mut session = loaded.unwrap_or_else(|| {
-            let mut s = ReviewSession::new(
+        let session = loaded.unwrap_or_else(|| {
+            ReviewSession::new(
                 vcs_info.root_path.clone(),
                 newest_commit_id,
                 vcs_info.branch_name.clone(),
                 SessionDiffSource::CommitRange,
-            );
-            s.commit_range = Some(commit_ids.to_vec());
-            s
+            )
         });
+        Self::adopt_commit_range(session, vcs_info, commit_ids, commit_range_base)
+    }
 
-        if session.commit_range.is_none() {
-            session.commit_range = Some(commit_ids.to_vec());
+    /// Point a session at the range this review covers.
+    fn adopt_commit_range(
+        mut session: ReviewSession,
+        vcs_info: &VcsInfo,
+        commit_ids: &[String],
+        commit_range_base: Option<&str>,
+    ) -> ReviewSession {
+        let newest_commit_id = commit_ids.last().cloned().unwrap_or_default();
+        let base = commit_range_base.map(str::to_string);
+        let changed = session.commit_range.as_deref() != Some(commit_ids)
+            || session.commit_range_base != base
+            || session.base_commit != newest_commit_id;
+        session.repo_path = vcs_info.root_path.clone();
+        session.branch_name = vcs_info.branch_name.clone();
+        session.base_commit = newest_commit_id;
+        session.commit_range = Some(commit_ids.to_vec());
+        session.commit_range_base = base;
+        if changed {
             session.updated_at = chrono::Utc::now();
         }
         session

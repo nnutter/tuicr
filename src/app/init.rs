@@ -249,7 +249,11 @@ impl App {
                 highlighter,
                 options.path_filter,
             )?;
-            let session = Self::load_or_create_commit_range_session(&vcs_info, &commit_ids);
+            let session = Self::load_or_create_commit_range_session(
+                &vcs_info,
+                &commit_ids,
+                Self::commit_range_base(vcs.as_ref(), &revision_range).as_deref(),
+            );
             // Get commit info for the inline commit selector
             let review_commits = crate::profile::time_with(
                 "startup.selected_commit_info",

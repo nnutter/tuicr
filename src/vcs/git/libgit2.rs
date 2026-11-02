@@ -191,6 +191,14 @@ impl VcsBackend for Libgit2Backend {
             .collect())
     }
 
+    fn commit_parent(&self, id: &str) -> Result<Option<String>> {
+        let Ok(oid) = git2::Oid::from_str(id) else {
+            return Ok(None);
+        };
+        let commit = self.repo.find_commit(oid)?;
+        Ok(commit.parent_ids().next().map(|parent| parent.to_string()))
+    }
+
     fn get_working_tree_with_commits_diff(
         &self,
         commit_ids: &[String],

@@ -337,6 +337,16 @@ pub trait VcsBackend: Send {
         Ok(Vec::new())
     }
 
+    /// Resolve the first parent of a commit.
+    ///
+    /// A commit-range review session records the boundary that its range sits
+    /// on, so that a rewrite of the range can resume the review of the files
+    /// that did not change. Returns `Ok(None)` for a root commit, and by
+    /// default for a backend that cannot report a parent.
+    fn commit_parent(&self, _id: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
+
     /// Get a combined diff from the parent of the oldest commit through to the working tree.
     /// This shows both committed and working tree changes in a single diff.
     /// Returns error if not supported (default).
