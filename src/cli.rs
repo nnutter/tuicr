@@ -36,10 +36,6 @@ pub struct CliArgs {
     pub remote: Option<String>,
     /// Non-interactive review session operation.
     pub review_command: Option<ReviewCommand>,
-    /// Update the installed tuicr binary and exit.
-    pub update_command: bool,
-    /// Exact version requested by `tuicr update`, if any.
-    pub update_version: Option<semver::Version>,
 }
 
 #[derive(Parser, Debug)]
@@ -155,12 +151,6 @@ enum Subcmd {
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
-    },
-    /// Update the installed tuicr binary.
-    Update {
-        /// Install a specific SemVer release, including an older known-good version.
-        #[arg(value_name = "VERSION")]
-        version: Option<semver::Version>,
     },
 }
 
@@ -331,36 +321,18 @@ pub enum LineSideArg {
 
 impl From<Cli> for CliArgs {
     fn from(cli: Cli) -> Self {
-        let (options, pr_target, review_command, update_version, update_command) = match cli.command
-        {
+        let (options, pr_target, review_command) = match cli.command {
             Some(Subcmd::Tui(command)) => match command.command {
                 Some(TuiSubcmd::Pr(pr)) => (
                     cli.tui_options.merge(command.options).merge(pr.options),
                     Some(pr.target),
                     None,
-                    None,
-                    false,
                 ),
-                None => (
-                    cli.tui_options.merge(command.options),
-                    None,
-                    None,
-                    None,
-                    false,
-                ),
+                None => (cli.tui_options.merge(command.options), None, None),
             },
-            Some(Subcmd::Pr(pr)) => (
-                cli.tui_options.merge(pr.options),
-                Some(pr.target),
-                None,
-                None,
-                false,
-            ),
-            Some(Subcmd::Review { command }) => {
-                (TuiOptions::default(), None, Some(command), None, false)
-            }
-            Some(Subcmd::Update { version }) => (TuiOptions::default(), None, None, version, true),
-            None => (cli.tui_options, None, None, None, false),
+            Some(Subcmd::Pr(pr)) => (cli.tui_options.merge(pr.options), Some(pr.target), None),
+            Some(Subcmd::Review { command }) => (TuiOptions::default(), None, Some(command)),
+            None => (cli.tui_options, None, None),
         };
         Self {
             theme: options.theme,
@@ -376,8 +348,6 @@ impl From<Cli> for CliArgs {
             repo_url: options.repo_url,
             remote: options.remote,
             review_command,
-            update_command,
-            update_version,
         }
     }
 }
@@ -442,7 +412,6 @@ impl Cli {
     fn non_tui_command_name(&self) -> Option<&'static str> {
         match self.command {
             Some(Subcmd::Review { .. }) => Some("review"),
-            Some(Subcmd::Update { .. }) => Some("update"),
             _ => None,
         }
     }
@@ -760,37 +729,6 @@ mod tests {
     }
 
     #[test]
-    fn should_parse_update_command_without_tui_options() {
-        let parsed = parse_for_test(&["tuicr", "update"]).expect("parse should succeed");
-        assert!(parsed.update_command);
-        assert_eq!(parsed.update_version, None);
-        assert_eq!(parsed.review_command, None);
-    }
-
-    #[test]
-    fn should_parse_specific_update_version() {
-        let parsed = parse_for_test(&["tuicr", "update", "0.18.0"]).expect("parse should succeed");
-        assert!(parsed.update_command);
-        assert_eq!(
-            parsed.update_version.as_ref().map(ToString::to_string),
-            Some("0.18.0".to_string())
-        );
-    }
-
-    #[test]
-    fn should_reject_invalid_update_version() {
-        let err = parse_for_test(&["tuicr", "update", "latest"]).expect_err("parse should fail");
-        assert_eq!(err.kind(), ErrorKind::ValueValidation);
-    }
-
-    #[test]
-    fn should_reject_tui_options_with_update_command() {
-        let err =
-            parse_for_test(&["tuicr", "--theme", "dark", "update"]).expect_err("parse should fail");
-        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
-    }
-
-    #[test]
     fn should_parse_pr_target_as_bare_number() {
         let parsed = parse_for_test(&["tuicr", "pr", "125"]).expect("parse should succeed");
         assert_eq!(parsed.pr_target, Some("125".to_string()));
@@ -1022,12 +960,9 @@ mod tests {
 
     #[test]
     fn should_reject_remote_for_non_tui_commands() {
-        for command in [vec!["review", "list"], vec!["update"]] {
-            let mut args = vec!["tuicr", "--remote", "upstream"];
-            args.extend(command);
-            let err = parse_for_test(&args).expect_err("TUI option on non-TUI command");
-            assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
-        }
+        let err = parse_for_test(&["tuicr", "--remote", "upstream", "review", "list"])
+            .expect_err("TUI option on non-TUI command");
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
     }
 
     #[test]
