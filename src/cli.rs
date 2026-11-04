@@ -16,8 +16,6 @@ pub struct CliArgs {
     pub appearance: Option<AppearanceArg>,
     /// Output to stdout instead of clipboard when exporting.
     pub output_to_stdout: bool,
-    /// Skip checking for updates on startup.
-    pub no_update_check: bool,
     /// Commit/revision range to review.
     pub revisions: Option<String>,
     /// Skip commit selector and review uncommitted changes directly.
@@ -116,10 +114,6 @@ struct TuiOptions {
     /// Output to stdout instead of clipboard when exporting.
     #[arg(long = "stdout", action = ArgAction::SetTrue)]
     stdout: bool,
-
-    /// Skip checking for updates on startup.
-    #[arg(long = "no-update-check", action = ArgAction::SetTrue)]
-    no_update_check: bool,
 
     /// Override the forge repo for PR operations. Accepts GitHub, GitLab, or
     /// Azure DevOps URLs (HTTPS, SCP-style SSH, or ssh:// forms).
@@ -338,7 +332,6 @@ impl From<Cli> for CliArgs {
             theme: options.theme,
             appearance: options.appearance,
             output_to_stdout: options.stdout,
-            no_update_check: options.no_update_check,
             revisions: options.revisions,
             working_tree: options.working_tree,
             path_filter: options.path_filter,
@@ -357,7 +350,6 @@ impl TuiOptions {
         self.theme.is_some()
             || self.appearance.is_some()
             || self.stdout
-            || self.no_update_check
             || self.revisions.is_some()
             || self.working_tree
             || self.path_filter.is_some()
@@ -372,7 +364,6 @@ impl TuiOptions {
             theme: later.theme.or(self.theme),
             appearance: later.appearance.or(self.appearance),
             stdout: self.stdout || later.stdout,
-            no_update_check: self.no_update_check || later.no_update_check,
             revisions: later.revisions.or(self.revisions),
             working_tree: self.working_tree || later.working_tree,
             path_filter: later.path_filter.or(self.path_filter),
@@ -720,12 +711,6 @@ mod tests {
     fn should_parse_stdout_flag() {
         let parsed = parse_for_test(&["tuicr", "--stdout"]).expect("parse should succeed");
         assert!(parsed.output_to_stdout);
-    }
-
-    #[test]
-    fn should_parse_no_update_check_flag() {
-        let parsed = parse_for_test(&["tuicr", "--no-update-check"]).expect("parse should succeed");
-        assert!(parsed.no_update_check);
     }
 
     #[test]

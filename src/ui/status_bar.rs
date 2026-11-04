@@ -116,38 +116,6 @@ pub fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     let source_width = source_text.chars().count();
     let source_span = Span::styled(source_text, Style::default().fg(theme.fg_secondary));
 
-    let (update_span, update_width) = match app.update_info.as_ref() {
-        Some(info) if info.update_available => {
-            let text = format!(" v{} available ", info.latest_version);
-            let width = text.chars().count();
-            (
-                Span::styled(
-                    text,
-                    Style::default()
-                        .fg(theme.update_badge_fg)
-                        .bg(theme.update_badge_bg)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                width,
-            )
-        }
-        Some(info) if info.is_ahead => {
-            let text = format!(" unreleased v{} ", info.current_version);
-            let width = text.chars().count();
-            (
-                Span::styled(
-                    text,
-                    Style::default()
-                        .fg(theme.update_badge_fg)
-                        .bg(theme.update_badge_bg)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                width,
-            )
-        }
-        _ => (Span::raw(""), 0),
-    };
-
     let total_width = area.width as usize;
     let brand_width = brand.content.chars().count();
 
@@ -167,7 +135,7 @@ pub fn render_header(frame: &mut Frame, app: &App, area: Rect) {
         (Vec::new(), 0)
     };
 
-    let right_width = source_width + stat_width + update_width;
+    let right_width = source_width + stat_width;
 
     let (file_span, file_width) = if sole {
         let label = if app.is_cursor_in_overview() || app.current_file_path().is_none() {
@@ -205,9 +173,6 @@ pub fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     spans.push(Span::raw(" ".repeat(pad_width)));
     spans.push(source_span);
     spans.extend(stat_spans);
-    if update_width > 0 {
-        spans.push(update_span);
-    }
 
     frame.render_widget(
         Paragraph::new(Line::from(spans)).style(styles::status_bar_style(theme)),
