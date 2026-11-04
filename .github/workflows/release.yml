@@ -94,7 +94,6 @@ jobs:
             Once merged, this will automatically:
             - Create git tag `v${{ steps.new.outputs.version }}`
             - Build binaries for Linux, macOS, Windows
-            - Publish to crates.io
             - Create GitHub Release with binaries
 
   publish:
@@ -108,8 +107,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-
       - name: Get version from Cargo.toml
         id: version
         run: |
@@ -122,11 +119,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "v${{ steps.version.outputs.version }}"
           git push origin "v${{ steps.version.outputs.version }}"
-
-      - name: Publish to crates.io
-        run: cargo publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
