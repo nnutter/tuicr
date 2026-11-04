@@ -536,6 +536,46 @@ pub fn load_latest_session_for_context(
     Ok(Some((full_path, session)))
 }
 
+/// Look up the newest commit-range session for this checkout whose range sits
+/// on the same boundary as the requested one.
+///
+/// A rewrite replaces every commit in a range while the boundary below it
+/// stays the same, so the boundary is what identifies "the same review" across
+/// a reword, an applied autosquash marker, or a rebase. Ranges based on a
+/// different boundary belong to a different stack and never match.
+pub fn load_commit_range_predecessor(
+    repo_path: &Path,
+    commit_range_base: &str,
+    commit_range: &[String],
+) -> Result<Option<(PathBuf, ReviewSession)>> {
+    let reviews_dir = get_reviews_dir()?;
+    maybe_migrate(&reviews_dir)?;
+
+    for (slug, entry) in list_sessions_for_selector_in_dir(&reviews_dir, repo_path)? {
+        // Only commit-range sessions carry a range boundary, and only a
+        // candidate that has one can be matched.
+        if !matches!(
+            slug.parse::<Slug>(),
+            Ok(Slug::Local(local)) if matches!(local.source, slug::SlugSource::Commits(_))
+        ) {
+            continue;
+        }
+        let path = reviews_dir.join(&entry.path);
+        let session = load_session(&path)?;
+        if session.diff_source != SessionDiffSource::CommitRange {
+            continue;
+        }
+        if session.commit_range.as_deref() == Some(commit_range) {
+            continue;
+        }
+        if session.commit_range_base.as_deref() != Some(commit_range_base) {
+            continue;
+        }
+        return Ok(Some((path, session)));
+    }
+    Ok(None)
+}
+
 pub(crate) fn list_sessions_for_selector_in_dir(
     reviews_dir: &Path,
     selector: &Path,

@@ -404,6 +404,10 @@ impl VcsBackend for GitCliBackend {
         Ok(parse_commit_records(&output, &branch_tip_names))
     }
 
+    fn commit_parent(&self, id: &str) -> Result<Option<String>> {
+        parent_rev(&self.root_path, id)
+    }
+
     fn get_working_tree_with_commits_diff(
         &self,
         commit_ids: &[String],

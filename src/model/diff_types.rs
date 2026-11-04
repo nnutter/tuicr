@@ -5,6 +5,30 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::hash::Fnv1aHasher;
 use crate::model::comment::LineSide;
 
+/// Display path of the synthetic file that carries a commit's message in a
+/// commit-range review.
+///
+/// The short id is part of the path because a session keys file comments by
+/// path: two commits' messages must not share one comment bucket, and a
+/// rewritten commit must get its own entry rather than inherit the reviewed
+/// mark of the message it replaced.
+pub const COMMIT_MESSAGE_PATH_PREFIX: &str = "Commit Message (";
+
+/// Build the display path of a commit's message file.
+pub fn commit_message_path(short_id: &str) -> PathBuf {
+    PathBuf::from(format!("{COMMIT_MESSAGE_PATH_PREFIX}{short_id})"))
+}
+
+/// Short id embedded in a commit-message display path, or `None` for any other
+/// path.
+pub fn commit_message_short_id(path: &std::path::Path) -> Option<&str> {
+    let text = path.to_str()?;
+    let inner = text
+        .strip_prefix(COMMIT_MESSAGE_PATH_PREFIX)?
+        .strip_suffix(')')?;
+    (!inner.is_empty()).then_some(inner)
+}
+
 /// Backend-provided file metadata paired with that file's opaque patch text.
 ///
 /// Paths and status come from a machine-readable VCS or forge channel; the

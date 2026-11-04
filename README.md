@@ -226,6 +226,13 @@ so collaborative tools can add comments immediately. Empty auto-created session
 files are removed when the TUI exits. `tuicr review list` marks currently open
 TUI sessions with `"active": true`.
 
+Rewriting a reviewed commit range resumes that review. A reword, an applied
+`amend!` or `reword!` fixup, and a rebase of the range all replace every commit
+in it, so the previous review is matched by the commit the range sits on. Files
+whose diff did not change keep their reviewed mark and comments, files whose
+diff changed start unreviewed, and a rewritten commit's message starts
+unreviewed because its message file is new.
+
 Inside the TUI, the review target selector's **Sessions** tab lists the saved
 reviews for the current checkout, so you can resume one by picking it instead of
 retyping the commit range it was opened with. Open it with `:sessions` or cycle

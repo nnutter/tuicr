@@ -948,10 +948,12 @@ impl App {
     ) -> Result<()> {
         // Get the diff for the selected commits
         let highlighter = self.theme.syntax_highlighter();
+        let revision_range =
+            ResolvedRevisionRange::from_commit_ids(&selected_ids, RevisionDiffTarget::CommitList);
         let diff_files = Self::get_commit_range_diff_with_ignore(
             self.vcs.as_ref(),
             &self.vcs_info.root_path,
-            &ResolvedRevisionRange::from_commit_ids(&selected_ids, RevisionDiffTarget::CommitList),
+            &revision_range,
             highlighter,
             self.path_filter.as_deref(),
         )?;
@@ -961,35 +963,12 @@ impl App {
             return Ok(());
         }
 
-        // Update session with the newest commit as base
-        let newest_commit_id = selected_ids.last().unwrap().clone();
-        let loaded_session = load_latest_session_for_context(
-            &self.vcs_info.root_path,
-            self.vcs_info.branch_name.as_deref(),
-            &newest_commit_id,
-            SessionDiffSource::CommitRange,
-            Some(selected_ids.as_slice()),
-        )
-        .ok()
-        .and_then(|found| found.map(|(_path, session)| session));
-
-        let mut session = loaded_session.unwrap_or_else(|| {
-            let mut session = ReviewSession::new(
-                self.vcs_info.root_path.clone(),
-                newest_commit_id,
-                self.vcs_info.branch_name.clone(),
-                SessionDiffSource::CommitRange,
-            );
-            session.commit_range = Some(selected_ids.clone());
-            session
-        });
-
-        if session.commit_range.is_none() {
-            session.commit_range = Some(selected_ids.clone());
-            session.updated_at = chrono::Utc::now();
-        }
-
-        self.session = session;
+        self.session = Self::load_or_create_commit_range_session(
+            &self.vcs_info,
+            &selected_ids,
+            Self::commit_range_base(self.vcs.as_ref(), &revision_range).as_deref(),
+            &diff_files,
+        );
 
         // Add files to session
         for file in &diff_files {

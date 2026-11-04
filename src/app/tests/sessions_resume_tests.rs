@@ -11,24 +11,7 @@ use crate::review_store::{SessionKind, SessionSummary};
 use crate::vcs::traits::{ResolvedRevisionRange, VcsType};
 use std::sync::{Arc, Mutex};
 
-/// Redirects persisted-session storage to a temp dir for the current thread.
-struct TestReviewsDir {
-    _dir: tempfile::TempDir,
-}
-
-impl TestReviewsDir {
-    fn new() -> Self {
-        let dir = tempfile::tempdir().expect("failed to create test reviews dir");
-        crate::persistence::storage::set_test_reviews_dir(Some(dir.path().to_path_buf()));
-        Self { _dir: dir }
-    }
-}
-
-impl Drop for TestReviewsDir {
-    fn drop(&mut self) {
-        crate::persistence::storage::set_test_reviews_dir(None);
-    }
-}
+use super::TestReviewsDir;
 
 /// What the app asked the VCS for, so tests can assert the diff was requested
 /// the right way round rather than trusting the app's own bookkeeping.

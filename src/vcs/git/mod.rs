@@ -389,6 +389,13 @@ impl VcsBackend for GitBackend {
         }
     }
 
+    fn commit_parent(&self, id: &str) -> Result<Option<String>> {
+        match self {
+            Self::Libgit2(backend) => backend.commit_parent(id),
+            Self::Cli(backend) => backend.commit_parent(id),
+        }
+    }
+
     fn get_working_tree_with_commits_diff(
         &self,
         commit_ids: &[String],
@@ -757,6 +764,37 @@ mod tests {
     #[test]
     fn sha256_root_commit_with_worktree_diff() {
         assert_root_diff_for_object_formats("worktree");
+    }
+
+    /// A commit-range review keys on the boundary below its range, so both
+    /// backends must agree on a commit's first parent.
+    #[test]
+    fn commit_parent_resolves_the_first_parent_for_both_backends() {
+        let temp_dir = tempdir().expect("failed to create temp dir");
+        let root = temp_dir.path();
+        setup_standard_repo(root);
+        run_git_command(root, &["commit", "--allow-empty", "-m", "second"]).unwrap();
+        let head = run_git_command(root, &["rev-parse", "HEAD"]).unwrap();
+        let root_commit = run_git_command(root, &["rev-parse", "HEAD^"]).unwrap();
+
+        for preference in [GitBackendPreference::Libgit2, GitBackendPreference::Cli] {
+            let backend = GitBackend::discover_from(root, preference, DiffWhitespaceMode::Normal)
+                .expect("discover backend");
+            assert_eq!(
+                backend.commit_parent(head.trim()).unwrap().as_deref(),
+                Some(root_commit.trim())
+            );
+            assert_eq!(
+                backend.commit_parent(root_commit.trim()).unwrap(),
+                None,
+                "a root commit has no parent"
+            );
+            assert_eq!(
+                backend.commit_parent("not-a-commit").unwrap(),
+                None,
+                "an unreadable id has no parent"
+            );
+        }
     }
 
     fn setup_standard_repo(root: &Path) {

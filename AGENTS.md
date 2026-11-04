@@ -195,6 +195,7 @@ Repository-managed agent integrations:
 
 - Persisted review state with `files: HashMap<PathBuf, FileReview>`
 - Each `FileReview` has: `reviewed: bool`, `reviewed_hunks: BTreeSet<String>`, `file_comments: Vec<Comment>`, `line_comments: HashMap<u32, Vec<Comment>>`
+- A commit-range session also persists `commit_range` (oldest-first commit ids) and `commit_range_base` (the first parent of the oldest commit). The base is the only identity that survives a rewrite of the range, so it is what `load_commit_range_predecessor` matches on.
 
 **ReviewStore** (`src/review_store.rs`):
 
@@ -290,6 +291,8 @@ Each `Comment` carries a `lifecycle` field:
 - `submitted` — submitted with Comment/Approve/RequestChanges, locked from further edits
 
 Submit failure leaves comments at `local_draft`. Success transitions to `submitted` or `pushed_draft` atomically per the response.
+
+A local commit-range review is filed under a slug built from the range's commits, so a rewrite of those commits — a reword, an applied autosquash marker, or a rebase — never reopens the previous session. `App::resume_commit_range_session` (`src/app/session.rs`) therefore reads the newest session whose `commit_range_base` equals this range's base and adopts it: reviewed marks and comments carry over for files whose diff is unchanged, `ReviewSession::add_diff_file` resets the rest through their content hash, and entries that no longer appear in the range are dropped. The commit-message file path embeds the target commit's short id (`model::diff_types::commit_message_path`), so a rewritten commit's message is a new, unreviewed entry while a surviving commit keeps its reviewed message. The adopted session gets a new id; the superseded session file stays on disk.
 
 ### Submit pipeline (`src/forge/submit.rs`)
 

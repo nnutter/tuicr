@@ -114,6 +114,16 @@ pub struct ReviewSession {
     pub diff_source: SessionDiffSource,
     #[serde(default)]
     pub commit_range: Option<Vec<String>>,
+    /// Boundary that the reviewed range sits on: the first parent of the
+    /// oldest commit in `commit_range`, or `None` when the backend cannot
+    /// report it.
+    ///
+    /// A reword, an applied autosquash marker, or a rebase of the range
+    /// replaces every commit in it. The boundary is what survives that
+    /// rewrite, so it identifies the range whose review the next review of the
+    /// same stack resumes.
+    #[serde(default)]
+    pub commit_range_base: Option<String>,
     /// Identity for PR-mode sessions. `None` for local sessions. Default is
     /// `None` so existing local session JSON deserializes unchanged.
     #[serde(default)]
@@ -158,6 +168,7 @@ impl ReviewSession {
             base_commit,
             diff_source,
             commit_range: None,
+            commit_range_base: None,
             pr_session_key: None,
             remote_comments_visibility: PrCommentsVisibility::default(),
             commit_selection_range: None,
