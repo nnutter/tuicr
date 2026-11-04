@@ -19,15 +19,13 @@ Related references: [CONFIG.md](CONFIG.md) for the config file and themes,
 | `tuicr review list` | List persisted review sessions |
 | `tuicr review add` | Add a local draft comment to a session |
 | `tuicr review comments` (`tuicr review get`) | Print a session's comments |
-| `tuicr update [VERSION]` | Update the installed binary |
 
 `mr` is an alias of `pr`, and `get` an alias of `comments`; they behave
 identically. `<target>` accepts a bare `<number>`, `<owner/repo#N>`, or a PR
 URL.
 
-`tuicr update` takes an optional SemVer version to install a specific release,
-including an older known-good one. It only accepts a version number — there is
-no `latest` keyword; omit the argument to get the newest release.
+There is no `tuicr update` command and no startup update check: updating means
+re-running whichever command installed tuicr.
 
 There is no `tuicr help` subcommand. Use `-h` / `--help`, which also works per
 command (`tuicr review add --help`).
@@ -49,7 +47,6 @@ take the last one given and boolean flags stay on once set, so
 | `--file` | | `PATH` | Open a file or directory for annotation with no VCS required |
 | `--all-files` | `-A` | | Review every tracked file in the current repo |
 | `--stdout` | | | Print the export to stdout instead of copying to the clipboard |
-| `--no-update-check` | | | Skip the startup update check (same as `no_update_check` in the config) |
 | `--repo-url` | | `URL` | Override the forge repo for PR operations |
 | `--remote` | | `NAME` | Use a named VCS remote's fetch/pull URL for PR operations; conflicts with `--repo-url` |
 | `--version` | `-V` | | Print the version and exit |
@@ -101,7 +98,7 @@ tuicr -r main..HEAD -p src/cli.rs   # that file's changes across a range
 `--revisions` accepts leading hyphens, so revsets like `-r -3` reach the VCS
 rather than being read as another flag.
 
-TUI flags cannot be mixed with `review` or `update`, which do not open a TUI:
+TUI flags cannot be mixed with `review`, which does not open a TUI:
 
 ```bash
 tuicr --stdout review list
@@ -158,15 +155,12 @@ All three `tuicr review` subcommands print pretty JSON to stdout and nothing
 else. There is no `--json` flag because JSON is the only format. See
 [REVIEW_CLI.md](REVIEW_CLI.md) for the schemas.
 
-`tuicr update` prints a single line describing what it did — updated, already
-up to date, or completed through an external package manager.
-
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | Success, including `--help` and `--version` |
-| `1` | Startup failure (not a repository, forge auth, missing PR, bad `--file` path) or a failed `review` / `update` command |
+| `1` | Startup failure (not a repository, forge auth, missing PR, bad `--file` path) or a failed `review` command |
 | `2` | Usage error (unknown flag, conflicting flags, invalid `--appearance` value) or a theme that could not be resolved |
 
 ## Not provided
