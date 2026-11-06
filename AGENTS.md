@@ -27,6 +27,7 @@ src/
 ├── tuicrignore.rs       # .tuicrignore loader + diff file filtering (gitignore-style patterns)
 ├── theme/
 │   └── mod.rs           # Theme palette definitions + bundled/local theme resolution
+└── version.rs           # Binary version string; TUICR_VERSION overrides the crate version
 │
 ├── vcs/                 # VCS abstraction layer
 │   ├── mod.rs           # detect_vcs(): auto-detect VCS (jj first, then git, then hg)
