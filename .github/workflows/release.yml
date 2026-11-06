@@ -1,6 +1,10 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
   workflow_dispatch:
     inputs:
       action:
@@ -16,10 +20,6 @@ on:
         description: 'Version to build (only for build-binaries, e.g., 0.1.1)'
         required: false
         type: string
-
-  pull_request:
-    types: [closed]
-    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -91,15 +91,13 @@ jobs:
             - Version bump in `Cargo.toml`
             - Updated `CHANGELOG.md` (auto-generated from commits)
 
-            Once merged, this will automatically:
-            - Create git tag `v${{ steps.new.outputs.version }}`
+            Once merged, pushing the tag `v${{ steps.new.outputs.version }}` will automatically:
             - Build binaries for Linux, macOS, Windows
-            - Publish to crates.io
-            - Create GitHub Release with binaries
+            - Attach them to the GitHub Release
 
-  publish:
-    name: Publish Release
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/v')
+  create-release:
+    name: Create GitHub Release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -108,40 +106,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Get version from Cargo.toml
+      - name: Resolve version from tag
         id: version
         run: |
-          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Create and push tag
+      - name: Verify tag matches Cargo.toml
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
-
-      - name: Publish to crates.io
-        run: cargo publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          if [ "$VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $VERSION" >&2
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           generate_release_notes: true
           draft: false
 
   build-binaries:
     name: Build ${{ matrix.build_target }}
-    needs: [publish]
+    needs: [create-release]
     if: |
       always() &&
-      (needs.publish.result == 'success' ||
+      (needs.create-release.result == 'success' ||
        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'build-binaries' && github.event.inputs.version != ''))
     runs-on: ${{ matrix.os }}
     permissions:
@@ -167,12 +158,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.publish.outputs.version || github.event.inputs.version }}
+          ref: v${{ needs.create-release.outputs.version || github.event.inputs.version }}
 
       - name: Set version
         id: version
         shell: bash
-        run: echo "version=${{ needs.publish.outputs.version || github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        run: echo "version=${{ needs.create-release.outputs.version || github.event.inputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux' && endsWith(matrix.build_target, '-musl')

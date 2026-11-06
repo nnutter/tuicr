@@ -260,7 +260,6 @@ In command mode,
 | `:help` (`:h`) | Open the help screen |
 | `:messages` | Open full details for the current error |
 | `:version` | Show tuicr version |
-| `:update` | Check for updates |
 | `:q` (`:quit`) | Quit (warns on unsaved comments; discards review-only state) |
 | `:q!` (`:quit!`) | Force quit |
 | `:x` / `:wq` | Save and quit (prompts to copy if comments exist) |

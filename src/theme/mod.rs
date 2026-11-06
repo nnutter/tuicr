@@ -86,8 +86,6 @@ pub struct Theme {
     pub message_warning_bg: Color,
     pub message_error_fg: Color,
     pub message_error_bg: Color,
-    pub update_badge_fg: Color,
-    pub update_badge_bg: Color,
 
     // Mode indicator colors
     pub mode_fg: Color,
@@ -141,8 +139,6 @@ impl Clone for Theme {
             message_warning_bg: self.message_warning_bg,
             message_error_fg: self.message_error_fg,
             message_error_bg: self.message_error_bg,
-            update_badge_fg: self.update_badge_fg,
-            update_badge_bg: self.update_badge_bg,
             mode_fg: self.mode_fg,
             mode_bg: self.mode_bg,
         }
@@ -217,8 +213,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(255, 210, 90),
             message_error_fg: Color::White,
             message_error_bg: Color::Rgb(240, 90, 90),
-            update_badge_fg: Color::Black,
-            update_badge_bg: Color::Rgb(255, 210, 90),
 
             // Mode indicator colors
             mode_fg: Color::Black,
@@ -288,8 +282,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(240, 210, 150),
             message_error_fg: Color::White,
             message_error_bg: Color::Rgb(180, 60, 60),
-            update_badge_fg: Color::Black,
-            update_badge_bg: Color::Rgb(240, 210, 150),
 
             // Mode indicator colors
             mode_fg: Color::White,
@@ -363,8 +355,6 @@ impl Theme {
             message_warning_bg: yellow,
             message_error_fg: base3,
             message_error_bg: red,
-            update_badge_fg: base03,
-            update_badge_bg: yellow,
 
             mode_fg: base3,
             mode_bg: blue,
@@ -436,8 +426,6 @@ impl Theme {
             message_warning_bg: yellow,
             message_error_fg: base3,
             message_error_bg: red,
-            update_badge_fg: base03,
-            update_badge_bg: yellow,
 
             mode_fg: base3,
             mode_bg: blue,
@@ -600,8 +588,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(246, 217, 140),
             message_error_fg: Color::White,
             message_error_bg: Color::Rgb(217, 87, 87),
-            update_badge_fg: Color::Black,
-            update_badge_bg: Color::Rgb(246, 217, 140),
 
             // Mode indicator colors
             mode_fg: Color::White,
@@ -683,8 +669,6 @@ impl Theme {
             message_warning_bg: yellow,
             message_error_fg: fg,
             message_error_bg: red,
-            update_badge_fg: bg_dark,
-            update_badge_bg: yellow,
 
             mode_fg: bg_dark,
             mode_bg: orange,
@@ -751,8 +735,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(229, 192, 123),
             message_error_fg: Color::White,
             message_error_bg: Color::Rgb(224, 108, 117),
-            update_badge_fg: Color::Black,
-            update_badge_bg: Color::Rgb(229, 192, 123),
 
             // Mode indicator colors
             mode_fg: Color::Rgb(40, 44, 52),
@@ -812,8 +794,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(154, 103, 0),
             message_error_fg: Color::White,
             message_error_bg: Color::Rgb(207, 34, 46),
-            update_badge_fg: Color::White,
-            update_badge_bg: Color::Rgb(154, 103, 0),
 
             mode_fg: Color::White,
             mode_bg: Color::Rgb(9, 105, 218),
@@ -872,8 +852,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(210, 153, 34),
             message_error_fg: Color::White,
             message_error_bg: Color::Rgb(248, 81, 73),
-            update_badge_fg: Color::Rgb(13, 17, 23),
-            update_badge_bg: Color::Rgb(210, 153, 34),
 
             mode_fg: Color::White,
             mode_bg: Color::Rgb(88, 166, 255),
@@ -931,8 +909,6 @@ impl Theme {
             message_warning_bg: Color::Rgb(0xd2, 0x99, 0x22),
             message_error_fg: Color::Rgb(0x01, 0x04, 0x09),
             message_error_bg: Color::Rgb(0xf0, 0x88, 0x3e),
-            update_badge_fg: Color::Rgb(0x01, 0x04, 0x09),
-            update_badge_bg: Color::Rgb(0xd2, 0x99, 0x22),
 
             mode_fg: Color::Rgb(0x01, 0x04, 0x09),
             mode_bg: Color::Rgb(0x39, 0xc5, 0xcf),
@@ -1008,8 +984,6 @@ impl Theme {
             message_warning_bg: yellow,
             message_error_fg: fg,
             message_error_bg: red,
-            update_badge_fg: bg_dark,
-            update_badge_bg: yellow,
 
             mode_fg: bg_dark,
             mode_bg: blue,
@@ -1087,8 +1061,6 @@ impl Theme {
             message_warning_bg: yellow,
             message_error_fg: bg,
             message_error_bg: red,
-            update_badge_fg: bg,
-            update_badge_bg: yellow,
 
             mode_fg: bg,
             mode_bg: blue,
@@ -1458,8 +1430,6 @@ fn catppuccin_theme(flavor: CatppuccinFlavor, syntect_theme: EmbeddedThemeName) 
         message_warning_bg: flavor.yellow,
         message_error_fg: accent_fg,
         message_error_bg: flavor.red,
-        update_badge_fg: accent_fg,
-        update_badge_bg: flavor.peach,
 
         // Mode indicator colors
         mode_fg: accent_fg,
@@ -1534,8 +1504,6 @@ fn gruvbox_theme(flavor: GruvboxFlavor) -> Theme {
         message_warning_bg: flavor.yellow,
         message_error_fg: accent_fg,
         message_error_bg: flavor.red,
-        update_badge_fg: accent_fg,
-        update_badge_bg: flavor.orange,
 
         // Mode indicator colors
         mode_fg: accent_fg,
@@ -1598,8 +1566,6 @@ fn everforest_theme(flavor: EverforestFlavor) -> Theme {
         message_warning_bg: flavor.yellow,
         message_error_fg: accent_fg,
         message_error_bg: flavor.red,
-        update_badge_fg: accent_fg,
-        update_badge_bg: flavor.orange,
 
         mode_fg: accent_fg,
         mode_bg: flavor.green,
@@ -1663,8 +1629,6 @@ fn nord_theme(flavor: NordFlavor) -> Theme {
         message_warning_bg: flavor.orange,
         message_error_fg: accent_fg,
         message_error_bg: flavor.red,
-        update_badge_fg: accent_fg,
-        update_badge_bg: flavor.orange,
 
         mode_fg: accent_fg,
         mode_bg: flavor.frost1,
@@ -2200,8 +2164,6 @@ const LOCAL_THEME_KEYS: &[&str] = &[
     "message_warning_bg",
     "message_error_fg",
     "message_error_bg",
-    "update_badge_fg",
-    "update_badge_bg",
     "mode_fg",
     "mode_bg",
 ];
@@ -2281,8 +2243,6 @@ fn load_local_theme_from_path(path: &Path) -> Result<(Theme, Vec<String>), Strin
         message_warning_bg: require_local_theme_color(table, "message_warning_bg")?,
         message_error_fg: require_local_theme_color(table, "message_error_fg")?,
         message_error_bg: require_local_theme_color(table, "message_error_bg")?,
-        update_badge_fg: require_local_theme_color(table, "update_badge_fg")?,
-        update_badge_bg: require_local_theme_color(table, "update_badge_bg")?,
         mode_fg: require_local_theme_color(table, "mode_fg")?,
         mode_bg: require_local_theme_color(table, "mode_bg")?,
     };
@@ -2606,8 +2566,6 @@ message_warning_fg = "black"
 message_warning_bg = "#ffcb8b"
 message_error_fg = "white"
 message_error_bg = "#ef5350"
-update_badge_fg = "black"
-update_badge_bg = "#ffcb8b"
 mode_fg = "#011627"
 mode_bg = "#82aaff"
 {extra}

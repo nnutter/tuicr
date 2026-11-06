@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{self, IsTerminal, Write};
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use crossterm::{
@@ -28,7 +27,7 @@ use tuicr::input::{
 use tuicr::terminal_state::{TerminalFeatures, TerminalSession};
 use tuicr::theme::resolve_theme_with_config;
 use tuicr::vcs::{DiffWhitespaceMode, GitBackendPreference, WhitespaceAutoPolicy};
-use tuicr::{config, handler, profile, ui, update};
+use tuicr::{config, handler, profile, ui};
 
 /// Timeout for the "press Ctrl+C again to exit" feature
 const CTRL_C_EXIT_TIMEOUT: Duration = Duration::from_secs(2);
@@ -68,14 +67,6 @@ fn main() -> anyhow::Result<()> {
     // Parse CLI arguments and resolve theme
     // This also configures syntax highlighting colors before diff parsing
     let mut cli_args = profile::time("startup.parse_cli_args", parse_cli_args);
-    if cli_args.update_command {
-        let outcome = match cli_args.update_version.as_ref() {
-            Some(version) => update::update_to_version(version)?,
-            None => update::update_installed()?,
-        };
-        println!("{outcome}");
-        return Ok(());
-    }
     if let Some(review_command) = cli_args.review_command.take() {
         tuicr::review_cli::run(review_command)?;
         return Ok(());
@@ -143,26 +134,6 @@ fn main() -> anyhow::Result<()> {
         theme.panel_bg = ratatui::style::Color::Reset;
     }
 
-    let no_update_check = cli_args.no_update_check
-        || config_outcome
-            .config
-            .as_ref()
-            .and_then(|cfg| cfg.no_update_check)
-            .unwrap_or(false);
-
-    // Start update check in background (non-blocking)
-    let update_rx = if !no_update_check {
-        let (tx, rx) = mpsc::channel();
-        std::thread::spawn(move || {
-            let result = update::check_for_updates();
-            let _ = tx.send(result); // Ignore send error if receiver dropped
-        });
-        Some(rx)
-    } else {
-        None
-    };
-
-    // Initialize app
     let git_backend_preference = GitBackendPreference::from_config(
         config_outcome
             .config
@@ -424,17 +395,6 @@ fn main() -> anyhow::Result<()> {
 
     // Main loop
     loop {
-        // Check for update result (non-blocking)
-        if let Some(ref rx) = update_rx
-            && let Ok(
-                update::UpdateCheckResult::UpdateAvailable(info)
-                | update::UpdateCheckResult::AheadOfRelease(info),
-            ) = rx.try_recv()
-        {
-            app.update_info = Some(info);
-            needs_redraw = true;
-        }
-
         // Auto-clear expired pending Ctrl+C state and message
         if let Some(first_press) = pending_ctrl_c
             && first_press.elapsed() >= CTRL_C_EXIT_TIMEOUT
