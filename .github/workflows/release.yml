@@ -111,13 +111,11 @@ jobs:
         run: |
           echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify tag matches Cargo.toml
+      - name: Report versions
         run: |
           VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          if [ "$VERSION" != "${{ steps.version.outputs.version }}" ]; then
-            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $VERSION" >&2
-            exit 1
-          fi
+          echo "Cargo.toml version: $VERSION"
+          echo "Release version: ${{ steps.version.outputs.version }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -163,7 +161,13 @@ jobs:
       - name: Set version
         id: version
         shell: bash
-        run: echo "version=${{ needs.create-release.outputs.version || github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="${{ needs.create-release.outputs.version || github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            echo "no release version resolved" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux' && endsWith(matrix.build_target, '-musl')
@@ -185,6 +189,8 @@ jobs:
           echo "CC_${cc_target}=musl-gcc" >> "$GITHUB_ENV"
 
       - name: Build
+        env:
+          TUICR_VERSION: ${{ steps.version.outputs.version }}
         run: cargo build --release --target ${{ matrix.build_target }}
 
       - name: Verify Linux binary linkage
