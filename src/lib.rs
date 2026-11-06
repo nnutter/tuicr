@@ -23,6 +23,7 @@ pub mod theme;
 pub mod tuicrignore;
 pub mod ui;
 pub mod vcs;
+pub mod version;
 
 pub use error::{Result, TuicrError};
 pub use model::{Comment, CommentType, LineRange, LineSide, ReviewSession, SessionDiffSource};
