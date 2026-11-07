@@ -132,17 +132,17 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled(
-                "  Ctrl-d/u  ",
+                "  d/u       ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
-            Span::raw("Half page down/up"),
+            Span::raw("Half page down/up (Ctrl-d/u also works)"),
         ]),
         Line::from(vec![
             Span::styled(
-                "  Ctrl-f/b  ",
+                "  f/b       ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
-            Span::raw("Full page down/up"),
+            Span::raw("Full page down/up (Ctrl-f/b also works)"),
         ]),
         Line::from(vec![
             Span::styled(
@@ -560,7 +560,7 @@ pub fn render_help(frame: &mut Frame, app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled(
-                "  dd        ",
+                "  x         ",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::raw("Delete comment at cursor"),

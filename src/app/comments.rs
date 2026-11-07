@@ -637,7 +637,7 @@ impl App {
     }
 
     /// Content of the comment at the current cursor position, if any.
-    /// Resolves through the same lookup `dd` and `i` use, so `Y` yanks
+    /// Resolves through the same lookup `x` and `i` use, so `Y` yanks
     /// exactly the comment the cursor is sitting on.
     pub fn comment_content_at_cursor(&self) -> Option<String> {
         match self.find_comment_at_cursor()? {

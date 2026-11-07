@@ -169,8 +169,8 @@ pub struct Comment {
 | Key | Action |
 |-----|--------|
 | `j/k` | Scroll diff down/up one line |
-| `Ctrl-d/u` | Half page down/up |
-| `Ctrl-f/b` | Full page down/up |
+| `d/u` | Half page down/up (`Ctrl-d/u` also works) |
+| `f/b` | Full page down/up (`Ctrl-f/b` also works) |
 | `gg/G` | Go to first/last file |
 | `[` / `]` | Jump to previous/next file header |
 | `[c/]c` | Jump to previous/next comment |
@@ -191,7 +191,7 @@ pub struct Comment {
 | `c` | Add line comment at cursor |
 | `C` | Add file comment for current file |
 | `e` | Edit comment under cursor |
-| `dd` | Delete comment under cursor |
+| `x` | Delete comment under cursor |
 | `1-4` | Set comment type (1=Note, 2=Suggestion, 3=Issue, 4=Praise) |
 
 ### Session

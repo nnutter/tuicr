@@ -454,6 +454,26 @@ fn handle_copy_comment_at_cursor(app: &mut App) {
     }
 }
 
+/// Delete the comment under the cursor.
+///
+/// Pushed comments and remote threads are read only, so the action reports
+/// why it did nothing instead of silently failing.
+fn delete_comment_at_cursor(app: &mut App) {
+    if app.cursor_on_locked_comment() {
+        let forge = app.forge_display_name();
+        app.set_message(format!(
+            "Comment already pushed to {forge} — read only in tuicr"
+        ));
+    } else if !app.delete_comment_at_cursor() {
+        if app.cursor_on_remote_thread() {
+            let forge = app.forge_display_name();
+            app.set_message(format!("{forge} comment — read only in tuicr"));
+        } else {
+            app.set_message("No comment at cursor");
+        }
+    }
+}
+
 /// Export and quit (used by ZZ keybinding).
 /// When --stdout is set, stores export content and quits.
 /// Otherwise, exports to clipboard and quits.
@@ -1683,6 +1703,7 @@ fn handle_shared_normal_action(app: &mut App, action: Action) {
         Action::PrevComment => app.prev_comment(),
         Action::ToggleReviewed => app.toggle_reviewed(),
         Action::ToggleHunkReviewed => app.toggle_hunk_reviewed(),
+        Action::DeleteCommentAtCursor => delete_comment_at_cursor(app),
         Action::ToggleFocus => {
             let has_selector = app.has_inline_commit_selector();
             let has_comments = app.has_comment_navigator_items();
@@ -1889,6 +1910,177 @@ mod command_tests {
         assert_eq!(
             command_spec_for("reviewed").map(|spec| spec.kind),
             Some(CommandKind::ToggleShowReviewed)
+        );
+    }
+}
+
+#[cfg(test)]
+mod delete_comment_tests {
+    use super::*;
+    use crate::app::{AnnotatedLine, App, DiffSource, InputMode};
+    use crate::error::{Result, TuicrError};
+    use crate::model::comment::{CommentType, LineSide};
+    use crate::model::diff_types::{DiffFile, DiffHunk, DiffLine, FileStatus, LineOrigin};
+    use crate::model::review::{ReviewSession, SessionDiffSource};
+    use crate::review_store::{AddCommentRequest, CommentTarget, add_comment_to_session};
+    use crate::syntax::SyntaxHighlighter;
+    use crate::theme::Theme;
+    use crate::vcs::traits::{VcsBackend, VcsInfo, VcsType};
+    use std::path::{Path, PathBuf};
+
+    struct DummyVcs {
+        info: VcsInfo,
+    }
+
+    impl VcsBackend for DummyVcs {
+        fn info(&self) -> &VcsInfo {
+            &self.info
+        }
+        fn get_working_tree_diff(&self, _highlighter: &SyntaxHighlighter) -> Result<Vec<DiffFile>> {
+            Err(TuicrError::NoChanges)
+        }
+        fn fetch_context_lines(
+            &self,
+            _file_path: &Path,
+            _file_status: FileStatus,
+            _ref_commit: Option<&str>,
+            _start_line: u32,
+            _end_line: u32,
+        ) -> Result<Vec<DiffLine>> {
+            Ok(Vec::new())
+        }
+        fn file_line_count(
+            &self,
+            _file_path: &Path,
+            _file_status: FileStatus,
+            _ref_commit: Option<&str>,
+        ) -> Result<u32> {
+            Ok(0)
+        }
+    }
+
+    /// An app with one changed file and one line comment on it.
+    fn build_app_with_line_comment() -> (App, PathBuf) {
+        let vcs_info = VcsInfo {
+            root_path: PathBuf::from("/tmp"),
+            head_commit: "head".to_string(),
+            branch_name: Some("main".to_string()),
+            vcs_type: VcsType::Git,
+        };
+        let session = ReviewSession::new(
+            vcs_info.root_path.clone(),
+            vcs_info.head_commit.clone(),
+            vcs_info.branch_name.clone(),
+            SessionDiffSource::WorkingTree,
+        );
+        let mut app = App::build(
+            Box::new(DummyVcs {
+                info: vcs_info.clone(),
+            }),
+            vcs_info,
+            Theme::dark(),
+            None,
+            false,
+            Vec::new(),
+            session,
+            DiffSource::WorkingTree,
+            InputMode::Normal,
+            Vec::new(),
+            None,
+            None,
+        )
+        .expect("failed to build test app");
+
+        let path = PathBuf::from("src/lib.rs");
+        let file = DiffFile {
+            old_path: None,
+            new_path: Some(path.clone()),
+            status: FileStatus::Modified,
+            hunks: vec![DiffHunk {
+                header: "@@ -1,1 +1,1 @@".to_string(),
+                lines: vec![DiffLine {
+                    origin: LineOrigin::Addition,
+                    content: "let x = 1;".to_string(),
+                    old_lineno: None,
+                    new_lineno: Some(1),
+                    highlighted_spans: None,
+                }],
+                old_start: 1,
+                old_count: 1,
+                new_start: 1,
+                new_count: 1,
+            }],
+            is_binary: false,
+            is_too_large: false,
+            is_commit_message: false,
+            content_hash: 7,
+        };
+        app.diff_files = vec![file.clone()];
+        app.session.add_diff_file(&file);
+        add_comment_to_session(
+            &mut app.session,
+            AddCommentRequest {
+                target: CommentTarget::Line {
+                    path: path.clone(),
+                    line: 1,
+                    side: LineSide::New,
+                },
+                content: "looks wrong".to_string(),
+                comment_type: CommentType::from_id("note"),
+                author: "user".to_string(),
+                commit_id: None,
+            },
+        )
+        .expect("the comment must be saved");
+        app.rebuild_annotations();
+        (app, path)
+    }
+
+    /// The delete action removes the comment under the cursor.
+    #[test]
+    fn deletes_the_comment_under_the_cursor() {
+        let (mut app, path) = build_app_with_line_comment();
+        let row = app
+            .line_annotations
+            .iter()
+            .position(|line| matches!(line, AnnotatedLine::LineComment { .. }))
+            .expect("the comment must have a row in the diff");
+        app.diff_state.cursor_line = row;
+
+        handle_diff_action(&mut app, Action::DeleteCommentAtCursor);
+
+        let review = app
+            .session
+            .files
+            .get(&path)
+            .expect("the file is in the session");
+        assert!(
+            !review.line_comments.contains_key(&1),
+            "the comment must be gone"
+        );
+    }
+
+    /// The delete action reports when the cursor is not on a comment.
+    #[test]
+    fn reports_when_the_cursor_is_not_on_a_comment() {
+        let (mut app, path) = build_app_with_line_comment();
+        app.diff_state.cursor_line = 0;
+
+        handle_diff_action(&mut app, Action::DeleteCommentAtCursor);
+
+        let review = app
+            .session
+            .files
+            .get(&path)
+            .expect("the file is in the session");
+        assert_eq!(
+            review.line_comments.get(&1).map(|c| c.len()),
+            Some(1),
+            "the comment must stay"
+        );
+        assert_eq!(
+            app.message.as_ref().map(|m| m.content.as_str()),
+            Some("No comment at cursor")
         );
     }
 }
