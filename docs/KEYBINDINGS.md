@@ -22,8 +22,8 @@ The binding does not apply in text-input or modal views.
 | `k` / `↑` | Scroll up |
 | `h` / `←` | Scroll left |
 | `l` / `→` | Scroll right |
-| `Ctrl-d` / `Ctrl-u` | Half page down / up |
-| `Ctrl-f` / `Ctrl-b` | Full page down / up |
+| `d` / `u` | Half page down / up |
+| `f` / `b` | Full page down / up |
 | `g` / `G` | Go to first / last file |
 | `{N}G` | Go to source line N in current file |
 | `{N}{motion}` | Vim-style count prefix — repeats `j` / `k` / `h` / `l` / `[` / `]` / `{` / `}` `N` times |
@@ -40,6 +40,9 @@ The binding does not apply in text-input or modal views.
 
 On a US keyboard, `{` and `}` need Shift. This matches `R` for hunk review,
 while `[` / `]` and `r` do not need Shift.
+
+The page scroll keys also work with `Ctrl` held down. `Ctrl-d` / `Ctrl-u` and
+`Ctrl-f` / `Ctrl-b` do the same as `d` / `u` and `f` / `b`.
 
 Hunk navigation within a file needs one press.
 At a file boundary, the first press leaves the cursor and viewport unchanged.
@@ -159,7 +162,7 @@ Shown below the file tree when local comments or visible remote PR threads exist
 | `C` | Add file comment |
 | `<leader>c` | Add review comment |
 | `v` / `V` | Enter visual mode for range comments |
-| `dd` | Delete comment at cursor |
+| `x` | Delete comment at cursor |
 | `i` | Edit comment at cursor (vim: text cursor at start) |
 | `A` | Edit comment at cursor with text cursor at end (vim mode only) |
 | `e` | Open focused file in `$EDITOR` |

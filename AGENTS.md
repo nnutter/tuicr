@@ -226,6 +226,11 @@ Repository-managed agent integrations:
 - **Hunk navigation**: Targets come from rendered `HunkHeader` annotations. Crossing files requires two same-direction presses within 400 ms in both continuous and single-file views. `next_hunks`/`prev_hunks` receive a count, repeat flag, and event timestamp so numeric counts and reported auto-repeat cannot confirm a boundary. The event loop cancels pending taps on other keys. Target, source cursor, and view mode must still match when confirming.
 - **Viewport centering**: `center_view` config selects a non-empty normal-mode character sequence (default `\`, with `zz` available as an override). `App::center_view_key` is shared by the diff/tree key maps and help. `CenterViewSequence` tracks multi-character prefixes in the event loop. The leader key takes precedence over the first character. A mismatch cancels the prefix and handles the current key normally. `zt`/`zb` still use the pending `z` sequence.
 - **Ignore filtering**: `.tuicrignore` is applied whenever diffs are loaded/reloaded
+- **Page scroll keys**: `d`/`u` scroll half a page and `f`/`b` scroll a full page. The
+  `Ctrl` variants (`Ctrl-d`/`Ctrl-u`, `Ctrl-f`/`Ctrl-b`) do the same thing and stay
+  supported. The bare keys work in the diff, the file tree, the help popup, and the
+  summary popup. `d` is a scroll key, so deleting the comment at the cursor is `x`
+  (`Action::DeleteCommentAtCursor`, handled in `handler::delete_comment_at_cursor`).
 - **File-tree filters**: `i`/`e` regex filters narrow the tree *and* the diff at render/measure
   time (`App::file_passes_filter`), unlike `.tuicrignore` which drops files at load time. They
   are session-local and never persisted

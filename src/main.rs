@@ -383,8 +383,6 @@ fn main() -> anyhow::Result<()> {
     let mut center_view_sequence = tuicr::input::keybindings::CenterViewSequence::default();
     // Track pending Z command for ZZ export+quit / ZQ quit
     let mut pending_shift_z = false;
-    // Track pending d command for dd delete
-    let mut pending_d = false;
     // Track pending leader command for leader-prefixed actions.
     let mut pending_leader = false;
     // Track pending Ctrl+C for "press twice to exit" (with timestamp for 2s timeout)
@@ -446,7 +444,7 @@ fn main() -> anyhow::Result<()> {
         {
             drained += 1;
             // Set before reading so the many `continue` paths below (leader
-            // keys, zz/ZZ, dd, {count}G, …) still schedule a redraw on the
+            // keys, zz/ZZ, {count}G, …) still schedule a redraw on the
             // next iteration even though they short-circuit past the match.
             needs_redraw = true;
             let event = event::read()?;
@@ -522,7 +520,6 @@ fn main() -> anyhow::Result<()> {
                     // fall through to those viewport-positioning commands.
                     if app.input_mode == InputMode::Normal
                         && !app.file_tree_prompt_editing()
-                        && !pending_d
                         && !pending_shift_z
                         && !pending_leader
                     {
@@ -588,16 +585,6 @@ fn main() -> anyhow::Result<()> {
                             }
                             _ => {} // Fall through to normal handling
                         }
-                    }
-
-                    // Handle pending d command for dd delete comment
-                    if pending_d {
-                        pending_d = false;
-                        if key.code == crossterm::event::KeyCode::Char('d') {
-                            handler::delete_comment_at_cursor(&mut app);
-                            continue;
-                        }
-                        // Otherwise fall through to normal handling
                     }
 
                     // Handle pending leader command for panel focus, file list toggle, and review comments.
@@ -715,11 +702,6 @@ fn main() -> anyhow::Result<()> {
                         }
                         Action::PendingShiftZCommand => {
                             pending_shift_z = true;
-                            app.pending_count = None;
-                            continue;
-                        }
-                        Action::PendingDCommand => {
-                            pending_d = true;
                             app.pending_count = None;
                             continue;
                         }

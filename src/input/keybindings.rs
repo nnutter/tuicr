@@ -45,7 +45,8 @@ pub enum Action {
     EditComment,
     /// Edit the comment at cursor with the text cursor at end (vim `A`).
     EditCommentAtEnd,
-    PendingDCommand,
+    /// Delete the comment under the cursor.
+    DeleteCommentAtCursor,
     EditFile,
     SearchNext,
     SearchPrev,
@@ -288,10 +289,10 @@ fn map_normal_mode_with_q_quits(
         (KeyCode::Char('k') | KeyCode::Up, KeyModifiers::NONE) => Action::CursorUp(1),
         (KeyCode::Char('e'), KeyModifiers::CONTROL) => Action::ScrollViewDown(1),
         (KeyCode::Char('y'), KeyModifiers::CONTROL) => Action::ScrollViewUp(1),
-        (KeyCode::Char('d'), KeyModifiers::CONTROL) => Action::HalfPageDown,
-        (KeyCode::Char('u'), KeyModifiers::CONTROL) => Action::HalfPageUp,
-        (KeyCode::Char('f'), KeyModifiers::CONTROL) => Action::PageDown,
-        (KeyCode::Char('b'), KeyModifiers::CONTROL) => Action::PageUp,
+        (KeyCode::Char('d'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::HalfPageDown,
+        (KeyCode::Char('u'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::HalfPageUp,
+        (KeyCode::Char('f'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::PageDown,
+        (KeyCode::Char('b'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::PageUp,
         (KeyCode::PageDown, KeyModifiers::NONE) => Action::PageDown,
         (KeyCode::PageUp, KeyModifiers::NONE) => Action::PageUp,
         (KeyCode::Char('g'), KeyModifiers::NONE) => Action::GoToTop,
@@ -327,7 +328,7 @@ fn map_normal_mode_with_q_quits(
         (KeyCode::Char('C'), _) => Action::AddFileComment,
         (KeyCode::Char('i'), KeyModifiers::NONE) => Action::EditComment,
         (KeyCode::Char('A'), _) => Action::EditCommentAtEnd,
-        (KeyCode::Char('d'), KeyModifiers::NONE) => Action::PendingDCommand,
+        (KeyCode::Char('x'), KeyModifiers::NONE) => Action::DeleteCommentAtCursor,
         (KeyCode::Char('v') | KeyCode::Char('V'), _) => Action::EnterVisualMode,
         (KeyCode::Char('y'), KeyModifiers::NONE) => Action::ExportToClipboard,
         (KeyCode::Char('Y'), _) => Action::CopyCommentAtCursor,
@@ -482,10 +483,10 @@ fn map_help_mode(key: KeyEvent) -> Action {
         (KeyCode::Char('k') | KeyCode::Up, KeyModifiers::NONE) => Action::CursorUp(1),
         (KeyCode::Char('h') | KeyCode::Left, KeyModifiers::NONE) => Action::ScrollLeft(4),
         (KeyCode::Char('l') | KeyCode::Right, KeyModifiers::NONE) => Action::ScrollRight(4),
-        (KeyCode::Char('d'), KeyModifiers::CONTROL) => Action::HalfPageDown,
-        (KeyCode::Char('u'), KeyModifiers::CONTROL) => Action::HalfPageUp,
-        (KeyCode::Char('f'), KeyModifiers::CONTROL) => Action::PageDown,
-        (KeyCode::Char('b'), KeyModifiers::CONTROL) => Action::PageUp,
+        (KeyCode::Char('d'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::HalfPageDown,
+        (KeyCode::Char('u'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::HalfPageUp,
+        (KeyCode::Char('f'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::PageDown,
+        (KeyCode::Char('b'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::PageUp,
         (KeyCode::PageDown, KeyModifiers::NONE) => Action::PageDown,
         (KeyCode::PageUp, KeyModifiers::NONE) => Action::PageUp,
         (KeyCode::Char('g'), KeyModifiers::NONE) => Action::GoToTop,
@@ -505,10 +506,10 @@ fn map_summary_mode(key: KeyEvent) -> Action {
         (KeyCode::Char('j') | KeyCode::Down, KeyModifiers::NONE) => Action::CursorDown(1),
         (KeyCode::Char('k') | KeyCode::Up, KeyModifiers::NONE) => Action::CursorUp(1),
         (KeyCode::Enter, KeyModifiers::NONE) => Action::SubmitInput,
-        (KeyCode::Char('d'), KeyModifiers::CONTROL) => Action::HalfPageDown,
-        (KeyCode::Char('u'), KeyModifiers::CONTROL) => Action::HalfPageUp,
-        (KeyCode::Char('f'), KeyModifiers::CONTROL) => Action::PageDown,
-        (KeyCode::Char('b'), KeyModifiers::CONTROL) => Action::PageUp,
+        (KeyCode::Char('d'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::HalfPageDown,
+        (KeyCode::Char('u'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::HalfPageUp,
+        (KeyCode::Char('f'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::PageDown,
+        (KeyCode::Char('b'), KeyModifiers::NONE | KeyModifiers::CONTROL) => Action::PageUp,
         (KeyCode::PageDown, KeyModifiers::NONE) => Action::PageDown,
         (KeyCode::PageUp, KeyModifiers::NONE) => Action::PageUp,
         (KeyCode::Char('g'), KeyModifiers::NONE) => Action::GoToTop,
@@ -982,6 +983,71 @@ mod tests {
             DEFAULT_LEADER_KEY,
         );
         assert_eq!(action, Action::ScrollViewDown(1));
+    }
+
+    #[test]
+    fn should_scroll_by_half_and_full_page_without_the_ctrl_key() {
+        let ctrl = |c: char| KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL);
+        for (bare, ctrl_key, expected) in [
+            ('d', 'd', Action::HalfPageDown),
+            ('u', 'u', Action::HalfPageUp),
+            ('f', 'f', Action::PageDown),
+            ('b', 'b', Action::PageUp),
+        ] {
+            assert_eq!(
+                map_normal_mode(key(KeyCode::Char(bare)), DEFAULT_LEADER_KEY),
+                expected,
+                "bare {bare}"
+            );
+            assert_eq!(
+                map_normal_mode(ctrl(ctrl_key), DEFAULT_LEADER_KEY),
+                expected,
+                "ctrl {ctrl_key}"
+            );
+            assert_eq!(
+                map_file_tree_mode(key(KeyCode::Char(bare)), DEFAULT_LEADER_KEY),
+                expected,
+                "file tree {bare}"
+            );
+        }
+    }
+
+    #[test]
+    fn should_scroll_by_half_and_full_page_without_the_ctrl_key_in_the_popups() {
+        let ctrl = |c: char| KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL);
+        for (bare, ctrl_key, expected) in [
+            ('d', 'd', Action::HalfPageDown),
+            ('u', 'u', Action::HalfPageUp),
+            ('f', 'f', Action::PageDown),
+            ('b', 'b', Action::PageUp),
+        ] {
+            assert_eq!(
+                map_help_mode(key(KeyCode::Char(bare))),
+                expected,
+                "help {bare}"
+            );
+            assert_eq!(
+                map_help_mode(ctrl(ctrl_key)),
+                expected,
+                "help ctrl {ctrl_key}"
+            );
+            assert_eq!(
+                map_summary_mode(key(KeyCode::Char(bare))),
+                expected,
+                "summary {bare}"
+            );
+            assert_eq!(
+                map_summary_mode(ctrl(ctrl_key)),
+                expected,
+                "summary ctrl {ctrl_key}"
+            );
+        }
+    }
+
+    #[test]
+    fn should_delete_the_comment_at_cursor_with_a_single_key() {
+        let action = map_normal_mode(key(KeyCode::Char('x')), DEFAULT_LEADER_KEY);
+        assert_eq!(action, Action::DeleteCommentAtCursor);
     }
 
     #[test]

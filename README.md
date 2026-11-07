@@ -299,7 +299,8 @@ A first-session cheatsheet. Press `?` inside tuicr for the full reference.
 | Key | Action |
 |---|---|
 | `j` / `k` | Down / up |
-| `Ctrl-d` / `Ctrl-u` | Half-page down / up |
+| `d` / `u` | Half-page down / up (`Ctrl-d` / `Ctrl-u` also work) |
+| `f` / `b` | Full-page down / up (`Ctrl-f` / `Ctrl-b` also work) |
 | `g` / `G` | Top / bottom |
 | `\` | Center cursor on screen |
 | `[` / `]` | Previous / next file |
