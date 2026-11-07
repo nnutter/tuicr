@@ -454,6 +454,26 @@ fn handle_copy_comment_at_cursor(app: &mut App) {
     }
 }
 
+/// Delete the comment under the cursor.
+///
+/// Pushed comments and remote threads are read only, so the action reports
+/// why it did nothing instead of silently failing.
+pub fn delete_comment_at_cursor(app: &mut App) {
+    if app.cursor_on_locked_comment() {
+        let forge = app.forge_display_name();
+        app.set_message(format!(
+            "Comment already pushed to {forge} — read only in tuicr"
+        ));
+    } else if !app.delete_comment_at_cursor() {
+        if app.cursor_on_remote_thread() {
+            let forge = app.forge_display_name();
+            app.set_message(format!("{forge} comment — read only in tuicr"));
+        } else {
+            app.set_message("No comment at cursor");
+        }
+    }
+}
+
 /// Export and quit (used by ZZ keybinding).
 /// When --stdout is set, stores export content and quits.
 /// Otherwise, exports to clipboard and quits.
